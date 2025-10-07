@@ -134,14 +134,26 @@ window.addEventListener("message", async (event) => {
     let data = JSON.parse(event.data);
 
     if (data.isResponse) return;
+    const { action, args, id } = data;
 
-    if (data.type === "handshake:reply" && data.pubN) {
+    if (data.type === "handshake:init" && data.pubN) {
+      window.ecdhKeyPair = await generateECDHKey();
+      const pubW = await exportPublicKey(window.ecdhKeyPair.publicKey);
       const nativePub = await importPublicKey(data.pubN);
       window.sessionKey = await deriveSessionKey(
         window.ecdhKeyPair.privateKey,
         nativePub
       );
+      const response = {
+        id,
+        success: true,
+        type: "handshake:reply",
+        pubW,
+        isResponse: true,
+      };
       console.log("🔐 Session key established with native");
+      window.ReactNativeWebView.postMessage(JSON.stringify(response));
+
       return;
     }
 
@@ -151,8 +163,6 @@ window.addEventListener("message", async (event) => {
       data = msg;
       console.log("📩 Decrypted from native:", msg);
     }
-
-    const { action, args, id } = data;
 
     if (!window.sparkAPI[action]) {
       throw new Error(`Unknown Spark action: ${action}`);
@@ -176,4 +186,3 @@ window.addEventListener("message", async (event) => {
     console.error("Spark WebContext error:", err);
   }
 });
-startHandshake();
