@@ -7,8 +7,8 @@ module.exports = {
   entry: ["webpack-hot-middleware/client?reload=true", "./index.js"],
   mode: "production",
   output: {
-    filename: "[name].js", // Remove .bundle
-    chunkFilename: "[id].js", // Remove .bundle
+    filename: "[name].bundle.js",
+    chunkFilename: "[name].chunk.js",
     path: path.resolve(__dirname, "dist"),
     publicPath: "/", // required for dev middleware
   },
@@ -26,9 +26,23 @@ module.exports = {
     open: true, // automatically open browser
     hot: true, // enable hot reloading
   },
-  module: {
-    rules: [{ test: /\.ts$/u, use: "ts-loader" }],
+  optimization: {
+    splitChunks: {
+      chunks: "all",
+    },
   },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: "babel-loader",
+        },
+      },
+    ],
+  },
+
   // resolve: {
   //   fallback: {
   //     crypto: require.resolve("crypto-browserify"),
