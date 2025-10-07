@@ -7,31 +7,14 @@ module.exports = {
   entry: "./index.js",
   mode: "production",
   output: {
-    filename: "bundle.js",
+    filename: "./index.js",
     path: path.resolve(__dirname, "dist"),
-    publicPath: "",
-    clean: true,
   },
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
     }),
-    new HtmlWebpackPlugin({
-      templateContent: `
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Spark Web Context</title>
-          </head>
-          <body>
-            <div id="root"></div>
-          </body>
-        </html>
-      `,
-      inject: "body",
-    }),
+    new HtmlWebpackPlugin(),
     new HtmlInlineScriptPlugin(),
   ],
   optimization: {
