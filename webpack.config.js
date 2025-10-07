@@ -7,7 +7,8 @@ module.exports = {
   entry: ["webpack-hot-middleware/client?reload=true", "./index.js"],
   mode: "production",
   output: {
-    filename: "bundle.js",
+    filename: "[name].js", // Remove .bundle
+    chunkFilename: "[id].js", // Remove .bundle
     path: path.resolve(__dirname, "dist"),
     publicPath: "/", // required for dev middleware
   },
