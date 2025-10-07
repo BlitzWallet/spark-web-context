@@ -42,7 +42,6 @@ export const clearMnemonicCache = () => {
 
 export const initializeSparkWallet = async ({ mnemonic }) => {
   try {
-    console.log(mnemonic, 'in init')
     const hash = getMnemonicHash(mnemonic)
 
     // Early return if already initialized
@@ -56,7 +55,32 @@ export const initializeSparkWallet = async ({ mnemonic }) => {
     })
 
     sparkWallet[hash] = wallet
+    handleEventListener({ mnemonic })
     return { isConnected: true }
+  } catch (err) {
+    console.log('Initialize spark wallet error function', err)
+    return { isConnected: false, error: err.message }
+  }
+}
+const handleTransfer = async (transferId, balance) => {
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({
+      incomingPayment: true,
+      result: JSON.stringify({ transferId, balance: balance.toString() }),
+      isResponse: true,
+    })
+  )
+}
+let currentConnection = ''
+const handleEventListener = async ({ mnemonic }) => {
+  try {
+    const hash = getMnemonicHash(mnemonic)
+    if (currentConnection && currentConnection !== hash) {
+      await wallet?.removeAllListeners('transfer:claimed')
+    }
+    const wallet = await getWallet(mnemonic)
+    wallet.on('transfer:claimed', handleTransfer)
+    currentConnection = hash
   } catch (err) {
     console.log('Initialize spark wallet error function', err)
     return { isConnected: false, error: err.message }
@@ -77,11 +101,9 @@ export const getSparkBalance = async ({ mnemonic }) => {
     const wallet = getWallet(mnemonic)
 
     const balance = await wallet.getBalance()
-    console.log('Spark Balance:', balance)
 
     let currentTokensObj = {}
     for (const [tokensIdentifier, tokensData] of balance.tokenBalances) {
-      console.log(tokensData, tokensData.tokenMetadata, tokensData.tokenMetadata.maxSupply)
       currentTokensObj[tokensIdentifier] = {
         ...tokensData,
         tokenMetadata: {
@@ -90,8 +112,6 @@ export const getSparkBalance = async ({ mnemonic }) => {
         },
         balance: tokensData.balance.toString(),
       }
-      console.log('Tokens Identifier', tokensIdentifier)
-      console.log('Tokens Balance:', currentTokensObj[tokensIdentifier])
     }
 
     return {
@@ -184,7 +204,6 @@ export const sendSparkPayment = async ({ receiverSparkAddress, amountSats, mnemo
       receiverSparkAddress: receiverSparkAddress.toLowerCase(),
       amountSats,
     })
-    console.log('spark payment response', response)
     return { didWork: true, response }
   } catch (err) {
     console.log('Send spark payment error', err)
