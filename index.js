@@ -136,10 +136,10 @@ window.addEventListener("message", async (event) => {
     if (data.isResponse) return;
     const { action, args, id } = data;
 
-    if (data.type === "handshake:init" && data.pubN) {
+    if (action === "handshake:init" && args.pubN) {
       window.ecdhKeyPair = await generateECDHKey();
       const pubW = await exportPublicKey(window.ecdhKeyPair.publicKey);
-      const nativePub = await importPublicKey(data.pubN);
+      const nativePub = await importPublicKey(args.pubN);
       window.sessionKey = await deriveSessionKey(
         window.ecdhKeyPair.privateKey,
         nativePub
@@ -153,7 +153,6 @@ window.addEventListener("message", async (event) => {
       };
       console.log("🔐 Session key established with native");
       window.ReactNativeWebView.postMessage(JSON.stringify(response));
-
       return;
     }
 
