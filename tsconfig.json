@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "noImplicitAny": true,
+    "target": "es5",
+    "module": "esnext",
+    "moduleResolution": "node"
+  },
+  "files": ["./index.ts", "src/constants.ts"]
+}
