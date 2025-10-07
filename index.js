@@ -20,6 +20,9 @@ window.sparkAPI = {
   getSparkAddress: Spark.getSparkAddress,
   getSparkIdentityPubKey: Spark.getSparkIdentityPubKey,
   getSparkStaticBitcoinL1Address: Spark.getSparkStaticBitcoinL1Address,
+  queryAllStaticDepositAddresses: Spark.queryAllStaticDepositAddresses,
+  getSparkStaticBitcoinL1AddressQuote:
+    Spark.getSparkStaticBitcoinL1AddressQuote,
   sendSparkPayment: Spark.sendSparkPayment,
   sendSparkTokens: Spark.sendSparkTokens,
   sendSparkLightningPayment: Spark.sendSparkLightningPayment,
@@ -28,6 +31,13 @@ window.sparkAPI = {
   getSparkLightningPaymentStatus: Spark.getSparkLightningPaymentStatus,
   getSparkTransactions: Spark.getSparkTransactions,
   getSparkPaymentStatus: Spark.getSparkPaymentStatus,
+  getSparkLightningPaymentFeeEstimate:
+    Spark.getSparkLightningPaymentFeeEstimate,
+  getSparkBitcoinPaymentRequest: Spark.getSparkBitcoinPaymentRequest,
+  getSparkBitcoinPaymentFeeEstimate: Spark.getSparkBitcoinPaymentFeeEstimate,
+  getSparkPaymentFeeEstimate: Spark.getSparkPaymentFeeEstimate,
+  getSparkLightningSendRequest: Spark.getSparkLightningSendRequest,
+  getSparkTokenTransactions: Spark.getSparkTokenTransactions,
 };
 
 // ✅ Allow React Native to trigger functions by posting a message
