@@ -4,22 +4,26 @@ const path = require("path");
 const webpack = require("webpack");
 
 module.exports = {
-  entry: "./index.js",
+  entry: ["webpack-hot-middleware/client?reload=true", "./index.js"],
   mode: "production",
   output: {
-    filename: "./index.js",
+    filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
+    publicPath: "/", // required for dev middleware
   },
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
     }),
     new HtmlWebpackPlugin(),
+    new webpack.HotModuleReplacementPlugin(),
     new HtmlInlineScriptPlugin(),
   ],
-  optimization: {
-    splitChunks: false,
-    runtimeChunk: false,
+  devServer: {
+    static: path.resolve(__dirname, "dist"),
+    port: 3000,
+    open: true, // automatically open browser
+    hot: true, // enable hot reloading
   },
   module: {
     rules: [{ test: /\.ts$/u, use: "ts-loader" }],
