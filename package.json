@@ -7,7 +7,7 @@
     "prepack": "npm run build",
     "start": "webpack serve --mode development",
     "dev": "node server.js",
-    "build": "webpack --mode production"
+    "build": "webpack && node inline-assets.js"
   },
   "author": "Blake Kaufman",
   "repository": "github:blitzwallet/spark-web-context",
@@ -24,6 +24,7 @@
     "express": "^5.1.0",
     "html-inline-script-webpack-plugin": "^3.2.1",
     "html-webpack-plugin": "^5.6.4",
+    "inline-chunk-html-plugin": "^1.1.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.3",
     "webpack": "^5.102.0",

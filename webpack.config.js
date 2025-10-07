@@ -1,36 +1,26 @@
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const HtmlInlineScriptPlugin = require("html-inline-script-webpack-plugin");
+const InlineChunkHtmlPlugin = require("inline-chunk-html-plugin");
 const path = require("path");
 const webpack = require("webpack");
 
 module.exports = {
-  entry: ["webpack-hot-middleware/client?reload=true", "./index.js"],
+  entry: "./index.js",
   mode: "production",
   output: {
-    filename: "[name].bundle.js",
-    chunkFilename: "[name].chunk.js",
+    filename: "index.js",
     path: path.resolve(__dirname, "dist"),
-    publicPath: "/", // required for dev middleware
+  },
+  optimization: {
+    splitChunks: false,
+    runtimeChunk: false,
   },
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
     }),
     new HtmlWebpackPlugin(),
-    new webpack.HotModuleReplacementPlugin(),
-    new HtmlInlineScriptPlugin(),
+    new InlineChunkHtmlPlugin(HtmlWebpackPlugin, [/.*/]), // Inline ALL chunks
   ],
-  devServer: {
-    static: path.resolve(__dirname, "dist"),
-    port: 3000,
-    open: true, // automatically open browser
-    hot: true, // enable hot reloading
-  },
-  optimization: {
-    splitChunks: {
-      chunks: "all",
-    },
-  },
   module: {
     rules: [
       {
@@ -42,14 +32,4 @@ module.exports = {
       },
     ],
   },
-
-  // resolve: {
-  //   fallback: {
-  //     crypto: require.resolve("crypto-browserify"),
-  //     fs: false,
-  //     path: require.resolve("path-browserify"),
-  //     stream: require.resolve("stream-browserify"),
-  //   },
-  //   extensions: [".js", ".ts"],
-  // },
 };

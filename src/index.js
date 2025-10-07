@@ -1,4 +1,5 @@
 import { SparkWallet } from '@buildonspark/spark-sdk'
+
 import {
   LightningSendRequestStatus,
   SparkCoopExitRequestStatus,

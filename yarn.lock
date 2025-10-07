@@ -2612,6 +2612,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"inline-chunk-html-plugin@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "inline-chunk-html-plugin@npm:1.1.1"
+  checksum: 92b20a049f074fc1133306b59c284f4642315232b9420f4a0fbde22bca19eae32af094da33ea5bf9ec996a78a5ffe5a4aa4ebba9641db4695513c4ac4a803386
+  languageName: node
+  linkType: hard
+
 "interpret@npm:^3.1.1":
   version: 3.1.1
   resolution: "interpret@npm:3.1.1"
@@ -3869,6 +3876,7 @@ __metadata:
     express: ^5.1.0
     html-inline-script-webpack-plugin: ^3.2.1
     html-webpack-plugin: ^5.6.4
+    inline-chunk-html-plugin: ^1.1.1
     ts-loader: ^9.5.1
     typescript: ^5.3.3
     webpack: ^5.102.0
