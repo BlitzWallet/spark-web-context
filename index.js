@@ -17,6 +17,7 @@ if (!window.ReactNativeWebView) {
 window.sparkAPI = {
   initializeSparkWallet: Spark.initializeSparkWallet,
   getSparkBalance: Spark.getSparkBalance,
+  getSparkAddress: Spark.getSparkAddress,
   getSparkIdentityPubKey: Spark.getSparkIdentityPubKey,
   getSparkStaticBitcoinL1Address: Spark.getSparkStaticBitcoinL1Address,
   sendSparkPayment: Spark.sendSparkPayment,
