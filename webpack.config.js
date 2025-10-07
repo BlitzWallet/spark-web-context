@@ -4,26 +4,39 @@ const path = require("path");
 const webpack = require("webpack");
 
 module.exports = {
-  entry: ["webpack-hot-middleware/client?reload=true", "./index.js"],
+  entry: "./index.js",
   mode: "production",
   output: {
     filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
-    publicPath: "/", // required for dev middleware
+    publicPath: "",
+    clean: true,
   },
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
     }),
-    new HtmlWebpackPlugin(),
-    new webpack.HotModuleReplacementPlugin(),
+    new HtmlWebpackPlugin({
+      templateContent: `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Spark Web Context</title>
+          </head>
+          <body>
+            <div id="root"></div>
+          </body>
+        </html>
+      `,
+      inject: "body",
+    }),
     new HtmlInlineScriptPlugin(),
   ],
-  devServer: {
-    static: path.resolve(__dirname, "dist"),
-    port: 3000,
-    open: true, // automatically open browser
-    hot: true, // enable hot reloading
+  optimization: {
+    splitChunks: false,
+    runtimeChunk: false,
   },
   module: {
     rules: [{ test: /\.ts$/u, use: "ts-loader" }],
