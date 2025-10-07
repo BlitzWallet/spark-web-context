@@ -62,15 +62,39 @@ export const initializeSparkWallet = async ({ mnemonic }) => {
     return { isConnected: false, error: err.message }
   }
 }
+// --- Updated handleTransfer with encryption support ---
 const handleTransfer = async (transferId, balance) => {
-  window.ReactNativeWebView.postMessage(
-    JSON.stringify({
-      incomingPayment: true,
-      result: JSON.stringify({ transferId, balance: balance.toString() }),
-      isResponse: true,
-    })
-  )
+  const message = {
+    incomingPayment: true,
+    result: JSON.stringify({
+      transferId,
+      balance: balance.toString(),
+    }),
+    isResponse: true,
+  }
+
+  try {
+    if (window.sessionKey) {
+      // Encrypt before posting
+      const iv = crypto.getRandomValues(new Uint8Array(12))
+      const encoded = new TextEncoder().encode(JSON.stringify(message))
+      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, window.sessionKey, encoded)
+
+      const encrypted = {
+        iv: btoa(String.fromCharCode(...iv)),
+        ct: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
+      }
+
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'secure:msg', encrypted }))
+    } else {
+      // Fallback for pre-handshake
+      window.ReactNativeWebView.postMessage(JSON.stringify(message))
+    }
+  } catch (err) {
+    console.error('Encryption error during handleTransfer:', err)
+  }
 }
+
 let currentConnection = ''
 const handleEventListener = async ({ mnemonic }) => {
   try {
