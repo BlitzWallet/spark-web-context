@@ -9,53 +9,77 @@ console.log("Starting inline process...");
 // Read the HTML file
 let html = fs.readFileSync(htmlFile, "utf8");
 
-// Find all JS files in dist directory
-const jsFiles = fs
-  .readdirSync(distDir)
-  .filter((file) => file.endsWith(".js"))
-  .map((file) => path.join(distDir, file));
+// Extract script tags in order from the HTML
+const scriptTagRegex = /<script[^>]*src=["']([^"']*\.js)["'][^>]*><\/script>/g;
+const scriptTags = [];
+let match;
 
-console.log(`Found ${jsFiles.length} JS files to inline`);
-
-// Inline each JS file
-jsFiles.forEach((jsFile) => {
-  const fileName = path.basename(jsFile);
-  const jsContent = fs.readFileSync(jsFile, "utf8");
-
-  // Replace script tags that reference this file
-  const scriptTagRegex = new RegExp(
-    `<script[^>]*src=["']([^"']*${fileName}[^"']*)["'][^>]*></script>`,
-    "g"
-  );
-
-  html = html.replace(scriptTagRegex, (match) => {
-    console.log(`Inlining: ${fileName}`);
-    return `<script>${jsContent}</script>`;
+while ((match = scriptTagRegex.exec(html)) !== null) {
+  scriptTags.push({
+    fullTag: match[0],
+    src: match[1],
   });
+}
 
-  // Also handle script tags with defer/async attributes
-  const deferAsyncRegex = new RegExp(
-    `<script[^>]*(defer|async)[^>]*src=["']([^"']*${fileName}[^"']*)["'][^>]*></script>`,
-    "g"
-  );
+console.log(`Found ${scriptTags.length} script tags in HTML`);
 
-  html = html.replace(deferAsyncRegex, (match) => {
-    console.log(`Inlining (defer/async): ${fileName}`);
-    return `<script>${jsContent}</script>`;
-  });
+// Replace each script tag with inlined content in the same order
+scriptTags.forEach(({ fullTag, src }) => {
+  const fileName = path.basename(src);
+  const jsFilePath = path.join(distDir, fileName);
 
-  // Delete the JS file after inlining
-  fs.unlinkSync(jsFile);
-  console.log(`Deleted: ${fileName}`);
+  if (fs.existsSync(jsFilePath)) {
+    const jsContent = fs.readFileSync(jsFilePath, "utf8");
+    console.log(
+      `Inlining: ${fileName} (${(jsContent.length / 1024).toFixed(2)} KB)`
+    );
+
+    // Replace the script tag with inline script
+    html = html.replace(
+      fullTag,
+      `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>`
+    );
+
+    // Delete the JS file
+    fs.unlinkSync(jsFilePath);
+    console.log(`Deleted: ${fileName}`);
+  } else {
+    console.log(`Warning: ${fileName} not found, skipping`);
+  }
 });
 
-// Also check for any remaining script tags that might have relative paths
-const remainingScripts = html.match(
-  /<script[^>]*src=["']\.?\/[^"']*\.js["'][^>]*>/g
-);
-if (remainingScripts) {
-  console.log("\nWarning: Some script tags may not have been inlined:");
-  remainingScripts.forEach((tag) => console.log(tag));
+// Also inline any remaining JS files not referenced in HTML (fallback)
+const remainingJsFiles = fs
+  .readdirSync(distDir)
+  .filter((file) => file.endsWith(".js"));
+
+if (remainingJsFiles.length > 0) {
+  console.log(
+    `\nFound ${remainingJsFiles.length} additional JS files not in HTML:`
+  );
+
+  let additionalScripts = "";
+  remainingJsFiles.forEach((fileName) => {
+    const jsFilePath = path.join(distDir, fileName);
+    const jsContent = fs.readFileSync(jsFilePath, "utf8");
+    console.log(
+      `Inlining: ${fileName} (${(jsContent.length / 1024).toFixed(2)} KB)`
+    );
+
+    additionalScripts += `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>\n`;
+
+    fs.unlinkSync(jsFilePath);
+    console.log(`Deleted: ${fileName}`);
+  });
+
+  // Append these at the end of body
+  if (html.includes("</body>")) {
+    html = html.replace("</body>", `${additionalScripts}</body>`);
+  } else if (html.includes("</html>")) {
+    html = html.replace("</html>", `${additionalScripts}</html>`);
+  } else {
+    html += additionalScripts;
+  }
 }
 
 // Write the updated HTML
