@@ -65,14 +65,8 @@ const handleTransfer = async (transferId, balance) => {
   }
 
   try {
-    if (window.sessionKey) {
-      const encrypted = await encryptMessage(JSON.stringify(message))
-
-      window.ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
-    } else {
-      // Fallback for pre-handshake
-      window.ReactNativeWebView.postMessage(JSON.stringify(message))
-    }
+    const encrypted = await encryptMessage(JSON.stringify(message))
+    window.ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
   } catch (err) {
     console.error('Encryption error during handleTransfer:', err)
   }
@@ -82,10 +76,9 @@ let currentConnection = ''
 const handleEventListener = async ({ mnemonic }) => {
   try {
     const hash = getMnemonicHash(mnemonic)
-    if (currentConnection && currentConnection !== hash) {
-      await wallet?.removeAllListeners('transfer:claimed')
-    }
     const wallet = await getWallet(mnemonic)
+
+    wallet?.removeAllListeners('transfer:claimed')
     wallet.on('transfer:claimed', handleTransfer)
     currentConnection = hash
   } catch (err) {
@@ -225,6 +218,7 @@ export const sendSparkTokens = async ({ tokenIdentifier, tokenAmount, receiverSp
       tokenAmount: BigInt(tokenAmount),
       receiverSparkAddress,
     })
+
     return { didWork: true, response }
   } catch (err) {
     console.log('Send spark token error', err)
@@ -345,7 +339,12 @@ export const sendSparkBitcoinPayment = async ({
 
 export const getSparkTransactions = async ({ transferCount = 100, offsetIndex, mnemonic }) => {
   try {
-    return await getWallet(mnemonic).getTransfers(transferCount, offsetIndex)
+    const response = await getWallet(mnemonic).getTransfers(transferCount, offsetIndex)
+    const transfers = response.transfers.map((tx) => {
+      delete tx.leaves
+      return tx
+    })
+    return { transfers, offset: response.offset }
   } catch (err) {
     console.log('get spark transactions error', err)
     return { transfers: [] }
@@ -359,15 +358,54 @@ export const getSparkTokenTransactions = async ({
   tokenIdentifiers,
   outputIds,
   mnemonic,
+  lastSavedTransactionId,
 }) => {
   try {
-    return await getWallet(mnemonic).queryTokenTransactions({
+    const response = await getWallet(mnemonic).queryTokenTransactions({
       ownerPublicKeys,
       issuerPublicKeys,
       tokenTransactionHashes,
       tokenIdentifiers,
       outputIds,
     })
+
+    // Extract simplified transactions
+    const tokenTransactionsWithStatus = response.tokenTransactionsWithStatus.map((tx) => {
+      const t = tx.tokenTransaction
+      const firstOutput = t.tokenOutputs?.[0]
+      return {
+        tokenTransactionHash: tx.tokenTransactionHash,
+        tokenTransaction: {
+          clientCreatedTimestamp: t.clientCreatedTimestamp,
+          tokenOutputs: firstOutput
+            ? [
+                {
+                  ownerPublicKey: firstOutput.ownerPublicKey,
+                  tokenIdentifier: firstOutput.tokenIdentifier,
+                  tokenAmount: firstOutput.tokenAmount,
+                },
+              ]
+            : [],
+        },
+      }
+    })
+
+    // 🧠 Filter only NEW transactions compared to last saved one
+    let filteredTransactions = tokenTransactionsWithStatus
+    if (lastSavedTransactionId) {
+      const lastIndex = tokenTransactionsWithStatus.findIndex(
+        (tx) => Buffer.from(Object.values(tx.tokenTransactionHash)).toString('hex') === lastSavedTransactionId
+      )
+
+      if (lastIndex !== -1) {
+        filteredTransactions = tokenTransactionsWithStatus.slice(0, lastIndex)
+      }
+    }
+
+    return {
+      tokenTransactionsWithStatus: filteredTransactions,
+      offset: response.offset,
+    }
   } catch (err) {
     console.log('get spark transactions error', err)
     return []
