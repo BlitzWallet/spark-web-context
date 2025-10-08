@@ -29,6 +29,7 @@ window.sparkAPI = {
   queryAllStaticDepositAddresses: Spark.queryAllStaticDepositAddresses,
   getSparkStaticBitcoinL1AddressQuote:
     Spark.getSparkStaticBitcoinL1AddressQuote,
+  claimnSparkStaticDepositAddress: Spark.claimnSparkStaticDepositAddress,
   sendSparkPayment: Spark.sendSparkPayment,
   sendSparkTokens: Spark.sendSparkTokens,
   sendSparkLightningPayment: Spark.sendSparkLightningPayment,
