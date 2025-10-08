@@ -1,83 +1,114 @@
 import * as Spark from "./src/index";
+import * as secp256k1 from "@noble/secp256k1";
+import CryptoJS from "crypto-js";
 
 window.sessionKey = null;
 window.ecdhKeyPair = {};
 
+// Generate ECDH key pair using @noble/secp256k1
 async function generateECDHKey() {
-  return window.crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveKey", "deriveBits"]
-  );
-}
-
-async function exportPublicKey(key) {
-  const raw = await window.crypto.subtle.exportKey("raw", key);
-  return btoa(String.fromCharCode(...new Uint8Array(raw)));
-}
-
-async function importPublicKey(rawBase64) {
-  const bytes = Uint8Array.from(atob(rawBase64), (c) => c.charCodeAt(0));
-  return window.crypto.subtle.importKey(
-    "raw",
-    bytes,
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    []
-  );
-}
-
-async function deriveSessionKey(privateKey, publicKey) {
-  const secret = await window.crypto.subtle.deriveBits(
-    { name: "ECDH", public: publicKey },
-    privateKey,
-    256
-  );
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hkdfKey = await window.crypto.subtle.importKey(
-    "raw",
-    secret,
-    "HKDF",
-    false,
-    ["deriveKey"]
-  );
-  return window.crypto.subtle.deriveKey(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt,
-      info: new TextEncoder().encode("spark-handshake"),
-    },
-    hkdfKey,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-}
-
-async function encryptMessage(plaintext) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plaintext);
-  const ct = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    window.sessionKey,
-    encoded
-  );
+  const privateKey = secp256k1.utils.randomSecretKey();
+  const publicKey = secp256k1.getPublicKey(privateKey, false); // uncompressed
   return {
-    iv: btoa(String.fromCharCode(...iv)),
-    ct: btoa(String.fromCharCode(...new Uint8Array(ct))),
+    privateKey,
+    publicKey,
   };
 }
 
-async function decryptMessage({ iv, ct }) {
-  const ivBytes = Uint8Array.from(atob(iv), (c) => c.charCodeAt(0));
-  const ctBytes = Uint8Array.from(atob(ct), (c) => c.charCodeAt(0));
-  const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: ivBytes },
-    window.sessionKey,
-    ctBytes
+// Export public key as base64
+async function exportPublicKey(key) {
+  return btoa(String.fromCharCode(...key));
+}
+
+// Import public key from base64
+async function importPublicKey(rawBase64) {
+  return Uint8Array.from(atob(rawBase64), (c) => c.charCodeAt(0));
+}
+
+// Derive session key using ECDH
+async function deriveSessionKey(privateKey, publicKey) {
+  // Perform ECDH to get shared secret
+
+  const sharedSecret = secp256k1.getSharedSecret(privateKey, publicKey);
+
+  // Use the x-coordinate of the shared point (skip first byte which is the prefix)
+  const secret = sharedSecret.slice(1, 33);
+
+  // Generate salt
+  const salt = CryptoJS.lib.WordArray.random(16);
+
+  // Derive key using PBKDF2 (as HKDF alternative with crypto-js)
+  const key = CryptoJS.PBKDF2(CryptoJS.lib.WordArray.create(secret), salt, {
+    keySize: 256 / 32,
+    iterations: 1000,
+    hasher: CryptoJS.algo.SHA256,
+  });
+
+  // Store as hex string for use with crypto-js
+  return key.toString(CryptoJS.enc.Hex);
+}
+
+// Encrypt message using AES-GCM (simulated with AES-CTR + HMAC)
+async function encryptMessage(plaintext) {
+  // Generate random IV
+  const iv = CryptoJS.lib.WordArray.random(12);
+
+  // Convert session key to WordArray
+  const keyWordArray = CryptoJS.enc.Hex.parse(window.sessionKey);
+
+  // Encrypt using AES-CTR (crypto-js doesn't support GCM natively)
+  const encrypted = CryptoJS.AES.encrypt(plaintext, keyWordArray, {
+    iv: iv,
+    mode: CryptoJS.mode.CTR,
+    padding: CryptoJS.pad.NoPadding,
+  });
+
+  // Create HMAC for authentication (simulating GCM authentication)
+  const hmac = CryptoJS.HmacSHA256(
+    iv.concat(
+      CryptoJS.enc.Base64.parse(
+        encrypted.ciphertext.toString(CryptoJS.enc.Base64)
+      )
+    ),
+    keyWordArray
   );
-  return new TextDecoder().decode(pt);
+
+  return {
+    iv: iv.toString(CryptoJS.enc.Base64),
+    ct: encrypted.ciphertext.toString(CryptoJS.enc.Base64),
+    tag: hmac.toString(CryptoJS.enc.Base64),
+  };
+}
+
+// Decrypt message
+async function decryptMessage({ iv, ct, tag }) {
+  // Convert inputs to WordArray
+  const ivWordArray = CryptoJS.enc.Base64.parse(iv);
+  const ctWordArray = CryptoJS.enc.Base64.parse(ct);
+  const keyWordArray = CryptoJS.enc.Hex.parse(window.sessionKey);
+
+  // Verify HMAC
+  const computedHmac = CryptoJS.HmacSHA256(
+    ivWordArray.concat(ctWordArray),
+    keyWordArray
+  );
+
+  if (computedHmac.toString(CryptoJS.enc.Base64) !== tag) {
+    throw new Error("Authentication failed: message has been tampered with");
+  }
+
+  // Decrypt
+  const decrypted = CryptoJS.AES.decrypt(
+    { ciphertext: ctWordArray },
+    keyWordArray,
+    {
+      iv: ivWordArray,
+      mode: CryptoJS.mode.CTR,
+      padding: CryptoJS.pad.NoPadding,
+    }
+  );
+
+  return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
 async function startHandshake() {

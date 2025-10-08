@@ -9,7 +9,7 @@ import {
   ClaimStaticDepositStatus,
 } from '@buildonspark/spark-sdk/types'
 const SPARK_TO_SPARK_FEE = 0
-import sha256Hash from './hash'
+// import sha256Hash from './hash'
 
 export let sparkWallet = {}
 
@@ -18,7 +18,7 @@ const mnemonicHashCache = new Map()
 
 const getMnemonicHash = (mnemonic) => {
   if (!mnemonicHashCache.has(mnemonic)) {
-    mnemonicHashCache.set(mnemonic, sha256Hash(mnemonic))
+    mnemonicHashCache.set(mnemonic, mnemonic)
   }
   return mnemonicHashCache.get(mnemonic)
 }
