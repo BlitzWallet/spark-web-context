@@ -78,6 +78,11 @@ window.addEventListener("message", async (event) => {
       data = msg;
     }
 
+    if (data.action === "simulate_crash") {
+      while (true) {
+        window.location.reload();
+      }
+    }
     if (!window.sparkAPI[data.action]) {
       throw new Error(`Unknown Spark action: ${data.action}`);
     }
