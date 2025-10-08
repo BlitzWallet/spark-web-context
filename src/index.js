@@ -8,8 +8,8 @@ import {
   SparkUserRequestStatus,
   ClaimStaticDepositStatus,
 } from '@buildonspark/spark-sdk/types'
-import sha256Hash from './utils/hash'
-import { encryptMessage } from './utils/encription'
+import sha256Hash from './utils/hash.js'
+import { encryptMessage } from './utils/encription.js'
 
 const SPARK_TO_SPARK_FEE = 0
 export let sparkWallet = {}

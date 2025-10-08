@@ -1,4 +1,4 @@
-import * as Spark from "./src/index";
+import * as Spark from "./src/index.js";
 import {
   decryptMessage,
   deriveSessionKey,
@@ -6,7 +6,7 @@ import {
   exportPublicKey,
   generateECDHKey,
   importPublicKey,
-} from "./src/utils/encription";
+} from "./src/utils/encription.js";
 
 window.sessionKey = null;
 window.ecdhKeyPair = {};
