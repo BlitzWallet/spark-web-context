@@ -47,8 +47,10 @@ window.sparkAPI = {
   getSparkTokenTransactions: Spark.getSparkTokenTransactions,
 };
 
-// ✅ Allow React Native to trigger functions by posting a message
-window.addEventListener("message", async (event) => {
+window.addEventListener("message", handleMessage);
+document.addEventListener("message", handleMessage);
+
+async function handleMessage(event) {
   try {
     if (typeof event.data !== "string") return;
     let data = JSON.parse(event.data);
@@ -106,7 +108,7 @@ window.addEventListener("message", async (event) => {
       JSON.stringify({ err: err.message, isResponse: true })
     );
   }
-});
+}
 
 // CAN TEST METHODS HERE
 // async function runTests() {
