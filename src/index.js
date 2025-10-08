@@ -8,19 +8,15 @@ import {
   SparkUserRequestStatus,
   ClaimStaticDepositStatus,
 } from '@buildonspark/spark-sdk/types'
-const SPARK_TO_SPARK_FEE = 0
-// import sha256Hash from './hash'
+import sha256Hash from './utils/hash'
+import { encryptMessage } from './utils/encription'
 
+const SPARK_TO_SPARK_FEE = 0
 export let sparkWallet = {}
 
-// Hash cache to avoid recalculating hashes
-const mnemonicHashCache = new Map()
-
 const getMnemonicHash = (mnemonic) => {
-  if (!mnemonicHashCache.has(mnemonic)) {
-    mnemonicHashCache.set(mnemonic, mnemonic)
-  }
-  return mnemonicHashCache.get(mnemonic)
+  const hash = sha256Hash(mnemonic)
+  return hash
 }
 
 // Centralizes wallet lookup and error handling, reducing code duplication
@@ -33,11 +29,6 @@ const getWallet = (mnemonic) => {
   }
 
   return wallet
-}
-
-// Clear cache when needed (call this on logout/cleanup)
-export const clearMnemonicCache = () => {
-  mnemonicHashCache.clear()
 }
 
 export const initializeSparkWallet = async ({ mnemonic }) => {
@@ -75,17 +66,9 @@ const handleTransfer = async (transferId, balance) => {
 
   try {
     if (window.sessionKey) {
-      // Encrypt before posting
-      const iv = crypto.getRandomValues(new Uint8Array(12))
-      const encoded = new TextEncoder().encode(JSON.stringify(message))
-      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, window.sessionKey, encoded)
+      const encrypted = await encryptMessage(JSON.stringify(message))
 
-      const encrypted = {
-        iv: btoa(String.fromCharCode(...iv)),
-        ct: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
-      }
-
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'secure:msg', encrypted }))
+      window.ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
     } else {
       // Fallback for pre-handshake
       window.ReactNativeWebView.postMessage(JSON.stringify(message))
