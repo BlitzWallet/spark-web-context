@@ -114,21 +114,26 @@ async function handleMessage(event) {
 // async function runTests() {
 //   await loadKeys();
 
-//   // await sendTestingMessage({
-//   //   id: 1,
-//   //   action: "initializeSparkWallet",
-//   //   args: {
-//   //     mnemonic:
-//   //       "corn staff coin tuna senior reform liar grass forward where during blanket",
-//   //   },
-//   // });
-//   // await sendTestingMessage({
-//   //   id: 1,
-//   //   action: "getSparkAddress",
-//   //   args: {
-//   //     mnemonic:
-//   //       "corn staff coin tuna senior reform liar grass forward where during blanket",
-//   //   },
-//   // });
+//   setTimeout(() => {
+//     sendTestingMessage({
+//       id: 1,
+//       action: "initializeSparkWallet",
+//       args: {
+//         mnemonic:
+//           "corn staff coin tuna senior reform liar grass forward where during blanket",
+//       },
+//     });
+//   }, 1000);
+
+//   setTimeout(() => {
+//     sendTestingMessage({
+//       id: 1,
+//       action: "getSparkAddress",
+//       args: {
+//         mnemonic:
+//           "f90f3daaa11f8377781bd62a304b5c1ae4b481a330d495cf6a48839fab4c1a90",
+//       },
+//     });
+//   }, 5000);
 // }
 // runTests();
