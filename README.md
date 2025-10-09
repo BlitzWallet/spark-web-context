@@ -1,10 +1,10 @@
 # Spark Web Context for React Native
 
-This library provides a proxy-based multi-threading solution for using Spark in React Native. Since Spark operations can be computationally intensive, they sometimes block the main JavaScript thread. By offloading these operations to a WebView, we move them off the main thread, creating a smoother and more responsive experience for users.
+This library provides a background thread solution for using Spark in React Native. Since Spark operations can be computationally intensive, they sometimes block the main JavaScript thread. By offloading these operations to a WebView, we move them off the main thread, creating a smoother and more responsive experience for users.
 
 For security, all communication between React Native and the WebView is encrypted. When the WebView first loads, it performs a handshake with the React Native host application, exchanging public keys. From that point on, all messages are encrypted using the shared session key. The WebView runs in a fully containerized environment with no external network access except to Spark, and no data is persistently stored—everything is temporary and isolated.
 
-We inject function calls with the appropriate arguments from the React Native layer and listen for success or error messages from the WebView context. This allows React Native apps to interact with Spark wallets, payments, and transactions seamlessly.
+We send postMessage function calls with the appropriate arguments from the React Native layer and listen for success or error messages from the WebView context. This allows React Native apps to interact with Spark wallets, payments, and transactions seamlessly.
 
 ## Features
 
