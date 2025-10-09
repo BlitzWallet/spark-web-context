@@ -45,7 +45,6 @@ export const initializeSparkWallet = async ({ mnemonic }) => {
     })
 
     sparkWallet[hash] = wallet
-    handleEventListener({ hash })
     return { isConnected: true }
   } catch (err) {
     console.log('Initialize spark wallet error function', err)
@@ -71,21 +70,21 @@ const handleTransfer = async (transferId, balance) => {
   }
 }
 
-const handleEventListener = async ({ hash }) => {
-  try {
-    const wallet = await getWallet(hash)
-
-    wallet?.removeAllListeners('transfer:claimed')
-    wallet.on('transfer:claimed', handleTransfer)
-  } catch (err) {
-    console.log('Initialize spark wallet error function', err)
-    return { isConnected: false, error: err.message }
-  }
-}
-
 // -------------------------------
 // All mnemonic instances in the coming functions should actualy be a hash of the mnemoinc. The only time you send the mnmoinc is during initialization.
 // -------------------------------
+
+export const removeWalletEventListener = ({ mnemonic }) => {
+  const wallet = getWallet(mnemonic)
+
+  if (wallet?.listenerCount('transfer:claimed')) {
+    wallet.removeAllListeners('transfer:claimed')
+  }
+}
+export const addWalletEventListener = ({ mnemonic }) => {
+  const wallet = getWallet(mnemonic)
+  wallet.on('transfer:claimed', handleTransfer)
+}
 
 export const getSparkIdentityPubKey = async ({ mnemonic }) => {
   try {

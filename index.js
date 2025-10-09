@@ -45,6 +45,8 @@ window.sparkAPI = {
   getSparkPaymentFeeEstimate: Spark.getSparkPaymentFeeEstimate,
   getSparkLightningSendRequest: Spark.getSparkLightningSendRequest,
   getSparkTokenTransactions: Spark.getSparkTokenTransactions,
+  removeWalletEventListener: Spark.removeWalletEventListener,
+  addWalletEventListener: Spark.addWalletEventListener,
 };
 
 window.addEventListener("message", handleMessage);
