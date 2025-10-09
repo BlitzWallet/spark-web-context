@@ -20,8 +20,7 @@ const getMnemonicHash = (mnemonic) => {
 }
 
 // Centralizes wallet lookup and error handling, reducing code duplication
-const getWallet = (mnemonic) => {
-  const hash = getMnemonicHash(mnemonic)
+const getWallet = (hash) => {
   const wallet = sparkWallet[hash]
 
   if (!wallet) {
@@ -46,7 +45,7 @@ export const initializeSparkWallet = async ({ mnemonic }) => {
     })
 
     sparkWallet[hash] = wallet
-    handleEventListener({ mnemonic })
+    handleEventListener({ hash })
     return { isConnected: true }
   } catch (err) {
     console.log('Initialize spark wallet error function', err)
@@ -72,24 +71,24 @@ const handleTransfer = async (transferId, balance) => {
   }
 }
 
-let currentConnection = ''
-const handleEventListener = async ({ mnemonic }) => {
+const handleEventListener = async ({ hash }) => {
   try {
-    const hash = getMnemonicHash(mnemonic)
-    const wallet = await getWallet(mnemonic)
+    const wallet = await getWallet(hash)
 
     wallet?.removeAllListeners('transfer:claimed')
     wallet.on('transfer:claimed', handleTransfer)
-    currentConnection = hash
   } catch (err) {
     console.log('Initialize spark wallet error function', err)
     return { isConnected: false, error: err.message }
   }
 }
 
+// -------------------------------
+// All mnemonic instances in the coming functions should actualy be a hash of the mnemoinc. The only time you send the mnmoinc is during initialization.
+// -------------------------------
+
 export const getSparkIdentityPubKey = async ({ mnemonic }) => {
   try {
-    // Now uses optimized getWallet helper
     return await getWallet(mnemonic).getIdentityPublicKey()
   } catch (err) {
     console.log('Get spark balance error', err)
