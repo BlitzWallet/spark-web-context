@@ -257,7 +257,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ecies/ciphers@npm:^0.2.3":
+"@ecies/ciphers@npm:^0.2.3, @ecies/ciphers@npm:^0.2.4":
   version: 0.2.4
   resolution: "@ecies/ciphers@npm:0.2.4"
   peerDependencies:
@@ -383,12 +383,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jsonjoy.com/buffers@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "@jsonjoy.com/buffers@npm:1.0.0"
+"@jsonjoy.com/buffers@npm:^1.0.0, @jsonjoy.com/buffers@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "@jsonjoy.com/buffers@npm:1.2.0"
   peerDependencies:
     tslib: 2
-  checksum: 2d58ccbab0906cd4006a6428d55d1ef7183ae9b83249824fc6ae23645801c41710109d795a96e44a0aef8a67773af7b15cc6145035dc96d26906905110285b96
+  checksum: f7d8a34d73ecc768b420f914b23f22d0d2f4043832141a26ecab493a9dec8a77f8921913d57aebbd23a78cad59c83d7e94f76b6ed2ff34a59e3d83b5d25d3dcc
   languageName: node
   linkType: hard
 
@@ -402,23 +402,23 @@ __metadata:
   linkType: hard
 
 "@jsonjoy.com/json-pack@npm:^1.11.0":
-  version: 1.15.0
-  resolution: "@jsonjoy.com/json-pack@npm:1.15.0"
+  version: 1.20.0
+  resolution: "@jsonjoy.com/json-pack@npm:1.20.0"
   dependencies:
     "@jsonjoy.com/base64": ^1.1.2
-    "@jsonjoy.com/buffers": ^1.0.0
+    "@jsonjoy.com/buffers": ^1.2.0
     "@jsonjoy.com/codegen": ^1.0.0
-    "@jsonjoy.com/json-pointer": ^1.0.1
+    "@jsonjoy.com/json-pointer": ^1.0.2
     "@jsonjoy.com/util": ^1.9.0
     hyperdyperid: ^1.2.0
     thingies: ^2.5.0
   peerDependencies:
     tslib: 2
-  checksum: 36a569663f2a6dc5cbf778178d1b8108ac3e0f5181a585ced326fc203c5b6280515f452b948b8da1be73928a3b126588c0e6aacf906d9629c8b01a07b4e43951
+  checksum: 0e47e9be177d669f905903654c62769c9d4fdb7294e53fe8fdc2e6bc445c1f00d2b54731b9ef7603544a4a2a1096bae52411559d8112371eac062706917803e0
   languageName: node
   linkType: hard
 
-"@jsonjoy.com/json-pointer@npm:^1.0.1":
+"@jsonjoy.com/json-pointer@npm:^1.0.2":
   version: 1.0.2
   resolution: "@jsonjoy.com/json-pointer@npm:1.0.2"
   dependencies:
@@ -1374,7 +1374,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ansi-html-community@npm:0.0.8, ansi-html-community@npm:^0.0.8":
+"ansi-html-community@npm:^0.0.8":
   version: 0.0.8
   resolution: "ansi-html-community@npm:0.0.8"
   bin:
@@ -1397,7 +1397,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ansi-styles@npm:^4.0.0, ansi-styles@npm:^4.1.0":
+"ansi-styles@npm:^4.0.0":
   version: 4.3.0
   resolution: "ansi-styles@npm:4.3.0"
   dependencies:
@@ -1852,16 +1852,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chalk@npm:^4.1.0":
-  version: 4.1.2
-  resolution: "chalk@npm:4.1.2"
-  dependencies:
-    ansi-styles: ^4.1.0
-    supports-color: ^7.1.0
-  checksum: fe75c9d5c76a7a98d45495b91b2172fa3b7a09e0cc9370e5c8feb1c567b85c4288e2b3fded7cfdd7359ac28d6b3844feb8b82b8686842e93d23c827c417e83fc
-  languageName: node
-  linkType: hard
-
 "chokidar@npm:^3.6.0":
   version: 3.6.0
   resolution: "chokidar@npm:3.6.0"
@@ -2060,13 +2050,6 @@ __metadata:
     shebang-command: ^2.0.0
     which: ^2.0.1
   checksum: 8d306efacaf6f3f60e0224c287664093fa9185680b2d195852ba9a863f85d02dcc737094c6e512175f8ee0161f9b87c73c6826034c2422e39de7d6569cf4503b
-  languageName: node
-  linkType: hard
-
-"crypto-js@npm:^4.2.0":
-  version: 4.2.0
-  resolution: "crypto-js@npm:4.2.0"
-  checksum: f051666dbc077c8324777f44fbd3aaea2986f198fe85092535130d17026c7c2ccf2d23ee5b29b36f7a4a07312db2fae23c9094b644cc35f7858b1b4fcaf27774
   languageName: node
   linkType: hard
 
@@ -2350,7 +2333,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"enhanced-resolve@npm:^5.0.0, enhanced-resolve@npm:^5.17.3":
+"enhanced-resolve@npm:^5.17.3":
   version: 5.18.3
   resolution: "enhanced-resolve@npm:5.18.3"
   dependencies:
@@ -2913,13 +2896,6 @@ __metadata:
     readable-stream: ^2.0.1
     wbuf: ^1.1.0
   checksum: 2de144115197967ad6eeee33faf41096c6ba87078703c5cb011632dcfbffeb45784569e0cf02c317bd79c48375597c8ec88c30fff5bb0b023e8f654fb6e9c06e
-  languageName: node
-  linkType: hard
-
-"html-entities@npm:^2.1.0":
-  version: 2.6.0
-  resolution: "html-entities@npm:2.6.0"
-  checksum: 720643f7954019c80911430a7df2728524c07080edfe812610bfc5d8191cd772b470bee0ee151bf7426679314ae53cf28a1c845d702123714e625a8565b26567
   languageName: node
   linkType: hard
 
@@ -3561,7 +3537,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"micromatch@npm:^4.0.0, micromatch@npm:^4.0.2":
+"micromatch@npm:^4.0.2":
   version: 4.0.8
   resolution: "micromatch@npm:4.0.8"
   dependencies:
@@ -4454,7 +4430,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:^7.3.4, semver@npm:^7.3.5":
+"semver@npm:^7.3.5":
   version: 7.7.2
   resolution: "semver@npm:7.7.2"
   bin:
@@ -4677,32 +4653,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"source-map@npm:^0.7.4":
-  version: 0.7.6
-  resolution: "source-map@npm:0.7.6"
-  checksum: 932f4a2390aa7100e91357d88cc272de984ad29139ac09eedfde8cc78d46da35f389065d0c5343c5d71d054a6ebd4939a8c0f2c98d5df64fe97bb8a730596c2d
-  languageName: node
-  linkType: hard
-
 "spark-web-context@workspace:.":
   version: 0.0.0-use.local
   resolution: "spark-web-context@workspace:."
   dependencies:
     "@babel/core": ^7.28.4
     "@buildonspark/spark-sdk": ^0.4.0
+    "@ecies/ciphers": ^0.2.4
     "@noble/hashes": ^2.0.1
     "@noble/secp256k1": ^3.0.0
     babel-loader: ^10.0.0
-    crypto-js: ^4.2.0
     html-webpack-plugin: ^5.6.4
     inline-chunk-html-plugin: ^1.1.1
-    ts-loader: ^9.5.1
-    typescript: ^5.3.3
     webpack: ^5.102.0
     webpack-cli: ^6.0.1
-    webpack-dev-middleware: ^7.4.5
     webpack-dev-server: ^5.2.2
-    webpack-hot-middleware: ^2.26.1
   languageName: unknown
   linkType: soft
 
@@ -4822,15 +4787,6 @@ __metadata:
   dependencies:
     ansi-regex: ^6.0.1
   checksum: db0e3f9654e519c8a33c50fc9304d07df5649388e7da06d3aabf66d29e5ad65d5e6315d8519d409c15b32fa82c1df7e11ed6f8cd50b0e4404463f0c9d77c8d0b
-  languageName: node
-  linkType: hard
-
-"supports-color@npm:^7.1.0":
-  version: 7.2.0
-  resolution: "supports-color@npm:7.2.0"
-  dependencies:
-    has-flag: ^4.0.0
-  checksum: 3dda818de06ebbe5b9653e07842d9479f3555ebc77e9a0280caf5a14fb877ffee9ed57007c3b78f5a6324b8dbeec648d9e97a24e2ed9fdb81ddc69ea07100f4a
   languageName: node
   linkType: hard
 
@@ -4973,22 +4929,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-loader@npm:^9.5.1":
-  version: 9.5.4
-  resolution: "ts-loader@npm:9.5.4"
-  dependencies:
-    chalk: ^4.1.0
-    enhanced-resolve: ^5.0.0
-    micromatch: ^4.0.0
-    semver: ^7.3.4
-    source-map: ^0.7.4
-  peerDependencies:
-    typescript: "*"
-    webpack: ^5.0.0
-  checksum: ee8a6883d0f8c0db0ea254fe4e9247ab0f6747cbbbee987af80e69822b840bdc2b67cee267ed3a93af803aeed47790d64dbaf07c001322b9091671f51cbf12b2
-  languageName: node
-  linkType: hard
-
 "ts-poet@npm:^6.12.0":
   version: 6.12.0
   resolution: "ts-poet@npm:6.12.0"
@@ -5035,26 +4975,6 @@ __metadata:
     media-typer: 0.3.0
     mime-types: ~2.1.24
   checksum: 2c8e47675d55f8b4e404bcf529abdf5036c537a04c2b20177bcf78c9e3c1da69da3942b1346e6edb09e823228c0ee656ef0e033765ec39a70d496ef601a0c657
-  languageName: node
-  linkType: hard
-
-"typescript@npm:^5.3.3":
-  version: 5.9.3
-  resolution: "typescript@npm:5.9.3"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: 0d0ffb84f2cd072c3e164c79a2e5a1a1f4f168e84cb2882ff8967b92afe1def6c2a91f6838fb58b168428f9458c57a2ba06a6737711fdd87a256bbe83e9a217f
-  languageName: node
-  linkType: hard
-
-"typescript@patch:typescript@^5.3.3#~builtin<compat/typescript>":
-  version: 5.9.3
-  resolution: "typescript@patch:typescript@npm%3A5.9.3#~builtin<compat/typescript>::version=5.9.3&hash=29ae49"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: 8bb8d86819ac86a498eada254cad7fb69c5f74778506c700c2a712daeaff21d3a6f51fd0d534fe16903cb010d1b74f89437a3d02d4d0ff5ca2ba9a4660de8497
   languageName: node
   linkType: hard
 
@@ -5199,7 +5119,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webpack-dev-middleware@npm:^7.4.2, webpack-dev-middleware@npm:^7.4.5":
+"webpack-dev-middleware@npm:^7.4.2":
   version: 7.4.5
   resolution: "webpack-dev-middleware@npm:7.4.5"
   dependencies:
@@ -5260,17 +5180,6 @@ __metadata:
   bin:
     webpack-dev-server: bin/webpack-dev-server.js
   checksum: 96994d684563cfee76dcb031c7c18a1fa10aee2df0520a0f327c8d72d4692c0dcdd7e455adeed4f8da9695f2e9f8f5481053c7e6e27d7e35085e45357fc9f697
-  languageName: node
-  linkType: hard
-
-"webpack-hot-middleware@npm:^2.26.1":
-  version: 2.26.1
-  resolution: "webpack-hot-middleware@npm:2.26.1"
-  dependencies:
-    ansi-html-community: 0.0.8
-    html-entities: ^2.1.0
-    strip-ansi: ^6.0.0
-  checksum: 78513d8d5770c59c3039ce094c49b2e2772b3f1d4ec5c124a7aabe6124a0e08429993b81129649087dc300f496822257e39135bf8b891b51aea197c1b554072a
   languageName: node
   linkType: hard
 

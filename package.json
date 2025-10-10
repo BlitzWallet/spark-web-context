@@ -13,9 +13,9 @@
   "license": "MIT",
   "dependencies": {
     "@buildonspark/spark-sdk": "^0.4.0",
+    "@ecies/ciphers": "^0.2.4",
     "@noble/hashes": "^2.0.1",
-    "@noble/secp256k1": "^3.0.0",
-    "crypto-js": "^4.2.0"
+    "@noble/secp256k1": "^3.0.0"
   },
   "browser": {
     "fs": false
@@ -25,12 +25,8 @@
     "babel-loader": "^10.0.0",
     "html-webpack-plugin": "^5.6.4",
     "inline-chunk-html-plugin": "^1.1.1",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
     "webpack": "^5.102.0",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-middleware": "^7.4.5",
-    "webpack-dev-server": "^5.2.2",
-    "webpack-hot-middleware": "^2.26.1"
+    "webpack-dev-server": "^5.2.2"
   }
 }

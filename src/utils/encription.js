@@ -1,8 +1,8 @@
-import CryptoJS from 'crypto-js'
+import { aes256gcm } from '@ecies/ciphers/aes' // Add to WebView JS
 import { sha256 } from '@noble/hashes/sha2.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { getSharedSecret } from '@noble/secp256k1'
-import { btoa } from './base64'
+import { btoa } from './base64' // Your existing base64 util
 
 // helpers
 const hexToUint8 = (hex) => {
@@ -45,19 +45,17 @@ export async function encryptMessage(text) {
     const sharedX = sharedPoint.slice(1, 33) // Uint8Array
 
     const aesKeyBytes = deriveAesKeyFromSharedX(sharedX) // Uint8Array(32)
-    const keyWA = uint8ToWordArray(aesKeyBytes)
 
-    const ivBytes = window.crypto.getRandomValues(new Uint8Array(16))
-    const ivWA = uint8ToWordArray(ivBytes)
+    const ivBytes = window.crypto.getRandomValues(new Uint8Array(12))
+    const cipher = aes256gcm(aesKeyBytes, ivBytes) // Initialize GCM
+    const encrypted = cipher.encrypt(new TextEncoder().encode(text)) // Uint8Array (ciphertext + 16-byte tag)
+    const ciphertext = encrypted.slice(0, -16) // Extract ciphertext
+    const authTag = encrypted.slice(-16) // Extract tag
 
-    const encrypted = CryptoJS.AES.encrypt(text, keyWA, {
-      iv: ivWA,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7,
-    })
-
+    const ciphertextBase64 = arrayBufferToBase64(ciphertext)
     const ivBase64 = arrayBufferToBase64(ivBytes)
-    return `${encrypted.toString()}?iv=${ivBase64}`
+    const authTagBase64 = arrayBufferToBase64(authTag)
+    return `${ciphertextBase64}?iv=${ivBase64}&tag=${authTagBase64}`
   } catch (err) {
     console.error('Web encryptMessage err', err)
     throw err
@@ -78,19 +76,17 @@ export async function encryptMessageTest(text) {
     const sharedX = sharedPoint.slice(1, 33) // Uint8Array
 
     const aesKeyBytes = deriveAesKeyFromSharedX(sharedX) // Uint8Array(32)
-    const keyWA = uint8ToWordArray(aesKeyBytes)
+    const ivBytes = window.crypto.getRandomValues(new Uint8Array(12))
 
-    const ivBytes = window.crypto.getRandomValues(new Uint8Array(16))
-    const ivWA = uint8ToWordArray(ivBytes)
+    const cipher = aes256gcm(aesKeyBytes, ivBytes) // Initialize GCM
+    const encrypted = cipher.encrypt(new TextEncoder().encode(text)) // Uint8Array (ciphertext + 16-byte tag)
+    const ciphertext = encrypted.slice(0, -16) // Extract ciphertext
+    const authTag = encrypted.slice(-16) // Extract tag
 
-    const encrypted = CryptoJS.AES.encrypt(text, keyWA, {
-      iv: ivWA,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7,
-    })
-
+    const ciphertextBase64 = arrayBufferToBase64(ciphertext)
     const ivBase64 = arrayBufferToBase64(ivBytes)
-    return `${encrypted.toString()}?iv=${ivBase64}`
+    const authTagBase64 = arrayBufferToBase64(authTag)
+    return `${ciphertextBase64}?iv=${ivBase64}&tag=${authTagBase64}`
   } catch (err) {
     console.error('Web encryptMessage err', err)
     throw err
@@ -109,20 +105,20 @@ export async function decryptMessage(encryptedText) {
     const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
     const sharedX = sharedPoint.slice(1, 33)
     const aesKeyBytes = deriveAesKeyFromSharedX(sharedX)
-    const keyWA = uint8ToWordArray(aesKeyBytes)
+    if (!encryptedText.includes('?iv=') || !encryptedText.includes('&tag=')) {
+      throw new Error('Missing IV or auth tag')
+    }
 
-    if (!encryptedText.includes('?iv=')) throw new Error('Missing IV')
-    const [ciphertext, ivBase64] = encryptedText.split('?iv=')
-    const ivWA = base64ToWordArray(ivBase64)
+    const [ciphertextBase64, params] = encryptedText.split('?iv=')
+    const [ivBase64, authTagBase64] = params.split('&tag=')
+    const iv = Buffer.from(ivBase64, 'base64')
+    const ciphertext = Buffer.from(ciphertextBase64, 'base64')
+    const authTag = Buffer.from(authTagBase64, 'base64')
 
-    const decrypted = CryptoJS.AES.decrypt(ciphertext, keyWA, {
-      iv: ivWA,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7,
-    })
-
-    const plaintext = decrypted.toString(CryptoJS.enc.Utf8)
-    return plaintext
+    const cipher = aes256gcm(aesKeyBytes, iv)
+    const encryptedData = new Uint8Array([...ciphertext, ...authTag]) // Concatenate ciphertext + tag
+    const decrypted = cipher.decrypt(encryptedData) // Verifies tag, throws if invalid
+    return new TextDecoder().decode(decrypted)
   } catch (err) {
     console.error('Web decryptMessage err', err)
     throw err
