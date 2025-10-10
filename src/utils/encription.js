@@ -31,14 +31,10 @@ function deriveAesKeyFromSharedX(sharedXUint8) {
   return keyBytes
 }
 
-export async function encryptMessage(text) {
+export async function encryptMessage(priv, pub, text) {
   try {
-    const privHex =
-      typeof window.ecdhKeyPair.privateKey === 'string'
-        ? window.ecdhKeyPair.privateKey
-        : Buffer.from(window.ecdhKeyPair.privateKey).toString('hex')
-    const pubHex =
-      typeof window.devicePubkey === 'string' ? window.devicePubkey : Buffer.from(window.devicePubkey).toString('hex')
+    const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
+    const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
 
     const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
 
@@ -57,50 +53,15 @@ export async function encryptMessage(text) {
     const authTagBase64 = arrayBufferToBase64(authTag)
     return `${ciphertextBase64}?iv=${ivBase64}&tag=${authTagBase64}`
   } catch (err) {
-    console.error('Web encryptMessage err', err)
-    throw err
-  }
-}
-export async function encryptMessageTest(text) {
-  try {
-    const privHex =
-      typeof window.testingPrivKey === 'string'
-        ? window.testingPrivKey
-        : Buffer.from(window.testingPrivKey).toString('hex')
-    const pubHex =
-      typeof window.ecdhKeyPair.publicKey === 'string'
-        ? window.ecdhKeyPair.publicKey
-        : Buffer.from(window.ecdhKeyPair.publicKey).toString('hex')
-
-    const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
-    const sharedX = sharedPoint.slice(1, 33) // Uint8Array
-
-    const aesKeyBytes = deriveAesKeyFromSharedX(sharedX) // Uint8Array(32)
-    const ivBytes = window.crypto.getRandomValues(new Uint8Array(12))
-
-    const cipher = aes256gcm(aesKeyBytes, ivBytes) // Initialize GCM
-    const encrypted = cipher.encrypt(new TextEncoder().encode(text)) // Uint8Array (ciphertext + 16-byte tag)
-    const ciphertext = encrypted.slice(0, -16) // Extract ciphertext
-    const authTag = encrypted.slice(-16) // Extract tag
-
-    const ciphertextBase64 = arrayBufferToBase64(ciphertext)
-    const ivBase64 = arrayBufferToBase64(ivBytes)
-    const authTagBase64 = arrayBufferToBase64(authTag)
-    return `${ciphertextBase64}?iv=${ivBase64}&tag=${authTagBase64}`
-  } catch (err) {
-    console.error('Web encryptMessage err', err)
+    console.log('Web encryptMessage err', err)
     throw err
   }
 }
 
-export async function decryptMessage(encryptedText) {
+export async function decryptMessage(priv, pub, encryptedText) {
   try {
-    const privHex =
-      typeof window.ecdhKeyPair.privateKey === 'string'
-        ? window.ecdhKeyPair.privateKey
-        : Buffer.from(window.ecdhKeyPair.privateKey).toString('hex')
-    const pubHex =
-      typeof window.devicePubkey === 'string' ? window.devicePubkey : Buffer.from(window.devicePubkey).toString('hex')
+    const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
+    const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
 
     const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
     const sharedX = sharedPoint.slice(1, 33)
@@ -120,7 +81,7 @@ export async function decryptMessage(encryptedText) {
     const decrypted = cipher.decrypt(encryptedData) // Verifies tag, throws if invalid
     return new TextDecoder().decode(decrypted)
   } catch (err) {
-    console.error('Web decryptMessage err', err)
+    console.log('Web decryptMessage err', err)
     throw err
   }
 }

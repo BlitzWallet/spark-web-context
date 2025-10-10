@@ -1,25 +1,31 @@
 // Local browser testing helper
-
-import { encryptMessageTest } from './utils/encription'
+import { encryptMessage } from './utils/encription'
 import { generateECDHKey } from './utils/encriptionKeys'
 
 async function loadKeys() {
   const keyPair = await generateECDHKey()
-  window.ecdhKeyPair = keyPair
-
   const deviceKeyPair = await generateECDHKey()
-  window.devicePubkey = deviceKeyPair.publicKey
-  window.testingPrivKey = deviceKeyPair.privateKey
+
+  return {
+    window: keyPair,
+    device: deviceKeyPair,
+  }
 }
 
-async function sendTestingMessage(message) {
-  console.log('Sending message', message)
-  const encrypted = await encryptMessageTest(JSON.stringify(message))
-
+async function sendTestingMessage(priv, pub, message, useEncryption) {
+  if (useEncryption) {
+    const encrypted = await encryptMessage(priv, pub, JSON.stringify(message))
+    console.log('Sending message', message, encrypted)
+    window.postMessage(
+      JSON.stringify({
+        type: 'secure:msg',
+        encrypted: encrypted,
+      })
+    )
+  }
   window.postMessage(
     JSON.stringify({
-      type: 'secure:msg',
-      encrypted: encrypted,
+      ...message,
     })
   )
 }

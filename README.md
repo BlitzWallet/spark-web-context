@@ -80,7 +80,6 @@ The WebView can be mocked in a browser for local testing, allowing you to call S
 - receiveSparkLightningPayment
 - getSparkLightningPaymentStatus
 - getSparkTransactions
-- getSparkPaymentStatus
 - getSparkLightningPaymentFeeEstimate
 - getSparkBitcoinPaymentRequest
 - getSparkBitcoinPaymentFeeEstimate
