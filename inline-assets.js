@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
-const nonce = crypto.randomBytes(16).toString("base64url");
+// const crypto = require("crypto");
+// const nonce = crypto.randomBytes(16).toString("base64url");
 
 const SECURE_NONCE = nonce;
 
@@ -91,15 +91,15 @@ html = html.replace(
 );
 
 // Add CSP meta tag with placeholder nonce
-const cspTag = `<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-${SECURE_NONCE}';">`;
+// const cspTag = `<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-${SECURE_NONCE}';">`;
 
-// Inject into <head> if not already present
-if (!html.includes("Content-Security-Policy")) {
-  html = html.replace(/<head>/i, `<head>\n  ${cspTag}`);
-  console.log("Added CSP meta tag with nonce placeholder");
-} else {
-  console.log("ℹCSP meta tag already exists");
-}
+// // Inject into <head> if not already present
+// if (!html.includes("Content-Security-Policy")) {
+//   html = html.replace(/<head>/i, `<head>\n  ${cspTag}`);
+//   console.log("Added CSP meta tag with nonce placeholder");
+// } else {
+//   console.log("ℹCSP meta tag already exists");
+// }
 
 // Write the updated HTML
 fs.writeFileSync(htmlFile, html, "utf8");
