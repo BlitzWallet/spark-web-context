@@ -5,7 +5,7 @@ import { encryptMessage } from './utils/encription.js'
 const SPARK_TO_SPARK_FEE = 0
 
 // Encapsulate sparkWallet in a closure
-const createSparkWalletAPI = () => {
+const createSparkWalletAPI = ({ ecdhKeyPair, devicePubkey, ReactNativeWebView }) => {
   const sparkWallet = {}
 
   const getMnemonicHash = (mnemonic) => {
@@ -58,8 +58,8 @@ const createSparkWalletAPI = () => {
     }
 
     try {
-      const encrypted = await encryptMessage(JSON.stringify(message))
-      window.ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
+      const encrypted = await encryptMessage(ecdhKeyPair.privateKey, devicePubkey, JSON.stringify(message))
+      ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
     } catch (err) {
       console.log('Encryption error during handleTransfer:', err)
     }
@@ -233,25 +233,35 @@ const createSparkWalletAPI = () => {
     }
   }
 
-  const sendSparkLightningPayment = async ({ invoice, amountSat, mnemonic }) => {
+  const sendSparkLightningPayment = async ({ invoice, amountSat, mnemonic, maxFeeSats }) => {
     try {
-      const response = await getWallet(mnemonic).sendLightningPayment({
-        encodedInvoice: invoice.toLowerCase(),
-        amountSats: amountSat,
+      const paymentResponse = await getWallet(mnemonic).payLightningInvoice({
+        invoice: invoice.toLowerCase(),
+        maxFeeSats: maxFeeSats,
+        amountSatsToSend: amountSat,
       })
-      return { didWork: true, response }
+      return { didWork: true, paymentResponse }
     } catch (err) {
       console.log('Send spark lightning payment error', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  const sendSparkBitcoinPayment = async ({ destinationAddress, amountSats, feeRate, mnemonic }) => {
+  const sendSparkBitcoinPayment = async ({
+    onchainAddress,
+    exitSpeed,
+    amountSats,
+    feeQuote,
+    deductFeeFromWithdrawalAmount,
+    mnemonic,
+  }) => {
     try {
-      const response = await getWallet(mnemonic).sendBitcoin({
-        destinationAddress,
+      const response = await getWallet(mnemonic).withdraw({
+        onchainAddress: onchainAddress,
+        exitSpeed,
         amountSats,
-        feeRate,
+        feeQuote,
+        deductFeeFromWithdrawalAmount,
       })
       return { didWork: true, response }
     } catch (err) {
@@ -262,7 +272,7 @@ const createSparkWalletAPI = () => {
 
   const receiveSparkLightningPayment = async ({ amountSats, memo, expirySeconds, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).receiveLightningPayment({
+      const response = await getWallet(mnemonic).createLightningInvoice({
         amountSats,
         memo,
         expirySeconds,
@@ -274,34 +284,29 @@ const createSparkWalletAPI = () => {
     }
   }
 
-  const getSparkLightningPaymentStatus = async ({ transferId, mnemonic }) => {
+  const getSparkLightningPaymentStatus = async ({ lightningInvoiceId, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).getLightningSendStatus(transferId)
-      return { didWork: true, response }
+      const response = await getWallet(mnemonic).getLightningReceiveRequest(lightningInvoiceId)
+      return response
     } catch (err) {
       console.log('Get spark lightning payment status error', err)
-      return { didWork: false, error: err.message }
     }
   }
 
-  const getSparkBitcoinPaymentRequest = async ({ amountSats, memo, mnemonic }) => {
+  const getSparkBitcoinPaymentRequest = async ({ paymentId, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).createBitcoinPaymentRequest({
-        amountSats,
-        memo,
-      })
-      return { didWork: true, response }
+      const response = await getWallet(mnemonic).getCoopExitRequest(paymentId)
+      return response
     } catch (err) {
       console.log('Get spark bitcoin payment request error', err)
-      return { didWork: false, error: err.message }
     }
   }
 
-  const getSparkBitcoinPaymentFeeEstimate = async ({ destinationAddress, amountSats, mnemonic }) => {
+  const getSparkBitcoinPaymentFeeEstimate = async ({ withdrawalAddress, amountSats, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).getBitcoinSendFeeEstimate({
-        destinationAddress,
+      const response = await getWallet(mnemonic).getWithdrawalFeeQuote({
         amountSats,
+        withdrawalAddress: withdrawalAddress,
       })
       return { didWork: true, response }
     } catch (err) {
@@ -310,26 +315,22 @@ const createSparkWalletAPI = () => {
     }
   }
 
-  const getSparkPaymentFeeEstimate = async ({ receiverSparkAddress, amountSats, mnemonic }) => {
+  const getSparkPaymentFeeEstimate = async ({ amountSats, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).getTransferFeeEstimate({
-        receiverSparkAddress: receiverSparkAddress.toLowerCase(),
-        amountSats,
-      })
-      return { didWork: true, response }
+      const response = await getWallet(mnemonic).getSwapFeeEstimate(amountSats)
+      return response
     } catch (err) {
       console.log('Get spark payment fee estimate error', err)
-      return { didWork: false, error: err.message }
+      return 0
     }
   }
 
-  const getSparkLightningSendRequest = async ({ transferId, mnemonic }) => {
+  const getSparkLightningSendRequest = async ({ id, mnemonic }) => {
     try {
-      const response = await getWallet(mnemonic).getLightningSendRequest(transferId)
-      return { didWork: true, response }
+      const response = await getWallet(mnemonic).getLightningSendRequest(id)
+      return response
     } catch (err) {
       console.log('Get spark lightning send request error', err)
-      return { didWork: false, error: err.message }
     }
   }
 
