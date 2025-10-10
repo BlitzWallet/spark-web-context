@@ -12,6 +12,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
     devicePubkey: null,
     ReactNativeWebView: window.ReactNativeWebView,
   });
+  const processedMessageIds = new Set();
 
   // Mock WebView for browser testing (remove in production)
   if (process.env.NODE_ENV !== "production" && !ReactNativeWebView) {
@@ -33,7 +34,13 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
 
       if (data.isResponse) return;
 
+      if (data.id && processedMessageIds.has(data.id)) {
+        console.log(`Duplicate message ID ${data.id} ignored`);
+        return;
+      }
+
       if (data?.action === "handshake:init" && data?.args?.pubN) {
+        processedMessageIds.clear();
         ecdhKeyPair = await generateECDHKey();
         devicePubkey = data.args.pubN;
 
@@ -52,6 +59,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
           isResponse: true,
         };
         console.log("Session key established with native");
+        processedMessageIds.add(data.id);
         ReactNativeWebView.postMessage(JSON.stringify(response));
         return;
       }
@@ -65,6 +73,12 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         const msg = JSON.parse(decrypted);
         data = msg;
       }
+
+      if (data.id && processedMessageIds.has(data.id)) {
+        console.log(`Duplicate message ID ${data.id} ignored`);
+        return;
+      }
+      processedMessageIds.add(data.id);
 
       if (data.action === "simulate_crash") {
         throw new Error("Crash simulation not allowed in production");
