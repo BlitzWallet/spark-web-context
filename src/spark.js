@@ -37,6 +37,7 @@ const createSparkWalletAPI = ({ ecdhKeyPair, devicePubkey, ReactNativeWebView })
         mnemonicOrSeed: mnemonic,
         options: { network: 'MAINNET' },
       })
+      mnemonic = null
 
       sparkWallet[hash] = wallet
       return { isConnected: true }
