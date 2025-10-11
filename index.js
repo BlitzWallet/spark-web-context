@@ -39,6 +39,14 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         return;
       }
 
+      // Verify the nonce was properly injected
+      if (
+        !window.__STARTUP_NONCE__ ||
+        window.__STARTUP_NONCE__ === "__INJECT_NONCE__"
+      ) {
+        throw new Error("Security error: Startup nonce not properly injected");
+      }
+
       if (data?.action === "handshake:init" && data?.args?.pubN) {
         processedMessageIds.clear();
         ecdhKeyPair = await generateECDHKey();
@@ -56,6 +64,11 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
           success: true,
           type: "handshake:reply",
           pubW: Buffer.from(ecdhKeyPair.publicKey).toString("hex"),
+          runtimeNonce: await encryptMessage(
+            ecdhKeyPair.privateKey,
+            devicePubkey,
+            window.__STARTUP_NONCE__
+          ),
           isResponse: true,
         };
         console.log("Session key established with native");

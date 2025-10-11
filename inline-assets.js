@@ -1,9 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-// const crypto = require("crypto");
-// const nonce = crypto.randomBytes(16).toString("base64url");
-
-const SECURE_NONCE = nonce;
 
 const distDir = path.resolve(__dirname, "dist");
 const htmlFile = path.join(distDir, "index.html");
@@ -39,7 +35,7 @@ scriptTags.forEach(({ fullTag, src }) => {
     // Inline JS content with nonce placeholder
     html = html.replace(
       fullTag,
-      `<script nonce="${SECURE_NONCE}">\n// Inlined from ${fileName}\n${jsContent}\n</script>`
+      `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>`
     );
 
     // Delete the JS file
@@ -68,7 +64,7 @@ if (remainingJsFiles.length > 0) {
       `Inlining: ${fileName} (${(jsContent.length / 1024).toFixed(2)} KB)`
     );
 
-    additionalScripts += `<script nonce="${SECURE_NONCE}">\n// Inlined from ${fileName}\n${jsContent}\n</script>\n`;
+    additionalScripts += `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>\n`;
 
     fs.unlinkSync(jsFilePath);
     console.log(`Deleted: ${fileName}`);
@@ -84,22 +80,22 @@ if (remainingJsFiles.length > 0) {
   }
 }
 
-// Add nonce to any existing inline <script> tags without one
-html = html.replace(
-  /<script(?![^>]*nonce=)([^>]*)>/g,
-  `<script nonce="${SECURE_NONCE}"$1>`
-);
+// Add placeholder nonce for later validation in RN
 
-// Add CSP meta tag with placeholder nonce
-// const cspTag = `<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-${SECURE_NONCE}';">`;
+const nonceScript = `<script>
+    // Placeholder for runtime verification nonce (replaced at runtime)
+    window.__STARTUP_NONCE__ = "__INJECT_NONCE__";
+  </script>\n`;
 
-// // Inject into <head> if not already present
-// if (!html.includes("Content-Security-Policy")) {
-//   html = html.replace(/<head>/i, `<head>\n  ${cspTag}`);
-//   console.log("Added CSP meta tag with nonce placeholder");
-// } else {
-//   console.log("ℹCSP meta tag already exists");
-// }
+// Inject immediately after <head> since it always exists
+if (html.includes("<head>")) {
+  html = html.replace(/<head>/i, `<head>\n${nonceScript}`);
+  console.log("Added nonce placeholder after <head>");
+} else {
+  // fallback — prepend if somehow <head> missing
+  html = nonceScript + html;
+  console.log("No <head> found, added nonce placeholder at top");
+}
 
 // Write the updated HTML
 fs.writeFileSync(htmlFile, html, "utf8");
@@ -107,8 +103,4 @@ fs.writeFileSync(htmlFile, html, "utf8");
 console.log("\nInlining complete!");
 console.log(
   `Final HTML size: ${(fs.statSync(htmlFile).size / 1024 / 1024).toFixed(2)} MB`
-);
-console.log(`Nonce placeholder: ${SECURE_NONCE}`);
-console.log(
-  "\nRemember: The nonce will be injected at runtime by React Native"
 );
