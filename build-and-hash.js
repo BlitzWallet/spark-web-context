@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { sha256 } = require("@noble/hashes/sha2.js");
+const crypto = require("crypto");
 
 const distDir = path.resolve(__dirname, "./dist");
 const htmlFile = path.join(distDir, "index.html");
@@ -11,14 +11,16 @@ async function main() {
     console.error("dist/index.html not found — run build + inline first");
     process.exit(2);
   }
+
+  // Read file as raw binary buffer (not UTF-8 string)
   const html = fs.readFileSync(htmlFile);
-  const hashBytes = sha256(html);
-  const hashHex = Buffer.from(hashBytes).toString("hex");
+
+  const hashHex = crypto.createHash("md5").update(html).digest("hex");
 
   fs.writeFileSync(hexFile, hashHex, "utf8");
 
   console.log("\nHashed successfully");
-  console.log("Hash:", hashHex);
+  console.log("MD5 Hash:", hashHex);
 }
 
 main().catch(console.error);
