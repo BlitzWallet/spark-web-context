@@ -1,8 +1,23 @@
 # Spark Web Context for React Native
 
-This library provides a background thread solution for using Spark in React Native. Since Spark operations can be computationally intensive, they sometimes block the main JavaScript thread. By offloading these operations to a WebView, we move them off the main thread, creating a smoother and more responsive experience for users.
+This library provides a background thread solution for using Spark in React Native. Since Spark operations can be computationally intensive, they sometimes block the main JavaScript thread. By offloading these operations to an enclosed JS process running inside a WebView, we move them off the main thread, creating a smoother and more responsive experience for users.
 
-For security, all communication between React Native and the WebView is encrypted. When the WebView first loads, it performs a handshake with the React Native host application, exchanging public keys. From that point on, all messages are encrypted using the shared session key. The WebView runs in a fully containerized environment with no external network access except to Spark, and no data is persistently stored—everything is temporary and isolated.
+Load process:
+
+For security, all communication between React Native and the WebView is encrypted. When the WebView first loads, the React Native application reads the bundled HTML Webpack file from the app’s assets. If the hash of this file does not match the expected hash stored with the app, the WebView is discarded, and the application falls back to using legacy on-device Spark functions.
+
+If the hash matches—indicating the bundle has not been tampered with—the React Native application injects a per-session random nonce into the HTML bundle. The modified HTML is then saved to the app’s cache directory and loaded into the WebView.
+
+Next, the React Native app generates a random private and public key pair (unique for the session) and initiates a handshake with the WebView. The WebView, in turn, generates its own key pair, creates a combined key, and responds with a handshake reply containing its public key and the random nonce encrypted with the combined key.
+
+The React Native app then decrypts the nonce and verifies that it matches the one originally injected into the HTML. If the validation succeeds, this confirms that the HTML bundle is authentic, the WebView is legitimate, and all subsequent communication is secure.
+
+Each event exchanged between the React Native app and the WebView includes a unique event ID. The WebView tracks these IDs internally to prevent duplicate or replayed events from being processed. Because every session uses a newly generated encryption key, messages from previous sessions cannot be decrypted—ensuring message uniqueness across sessions and preventing replay attacks.
+
+The WebView environment itself is heavily locked down to reduce its attack surface. Features such as DOM storage, caching, and third-party cookies are disabled, and file access is tightly restricted. The WebView runs in incognito mode with debugging disabled, enforces a strict originWhitelist of local file URLs, and blocks all external or unverified requests via the onShouldStartLoadWithRequest callback. Additionally, if the WebView process terminates, it is automatically reloaded with all session keys and pending requests cleared, ensuring no residual data or state persists across reloads.
+
+All variables within the HTML Webpack bundle are enclosed in closure functions, keeping them out of the global window scope, and nothing is permanently stored in the webview.
+
 
 We send postMessage function calls with the appropriate arguments from the React Native layer and listen for success or error messages from the WebView context. This allows React Native apps to interact with Spark wallets, payments, and transactions seamlessly.
 
