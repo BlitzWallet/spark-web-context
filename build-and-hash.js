@@ -15,12 +15,12 @@ async function main() {
   // Read file as raw binary buffer (not UTF-8 string)
   const html = fs.readFileSync(htmlFile);
 
-  const hashHex = crypto.createHash("md5").update(html).digest("hex");
+  const hashHex = crypto.createHash("sha256").update(html).digest("hex");
 
   fs.writeFileSync(hexFile, hashHex, "utf8");
 
   console.log("\nHashed successfully");
-  console.log("MD5 Hash:", hashHex);
+  console.log("SHA256 Hash:", hashHex);
 }
 
 main().catch(console.error);
