@@ -143,8 +143,12 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       );
     } catch (err) {
       console.log("Spark WebContext error:", err);
+      const encrypted = await encryptMessage(
+        sharedKey,
+        JSON.stringify({ error: err.message })
+      );
       ReactNativeWebView.postMessage(
-        JSON.stringify({ err: err.message, isResponse: true })
+        JSON.stringify({ encrypted, isResponse: true })
       );
     }
   }
