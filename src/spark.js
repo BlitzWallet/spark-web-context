@@ -80,6 +80,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const addWalletEventListener = ({ mnemonic }) => {
     const wallet = getWallet(mnemonic)
+
+    if (wallet?.listenerCount('transfer:claimed')) return
+
     wallet.on('transfer:claimed', handleTransfer)
   }
 
