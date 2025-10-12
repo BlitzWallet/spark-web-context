@@ -50,7 +50,6 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       }
 
       if (data?.action === "handshake:init" && data?.args?.pubN) {
-        processedMessageIds.clear();
         const ecdhKeyPair = await generateECDHKey();
         sharedKey = deriveAesKey(ecdhKeyPair.privateKey, data.args.pubN);
 
