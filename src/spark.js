@@ -5,7 +5,7 @@ import { encryptMessage } from './utils/encription.js'
 const SPARK_TO_SPARK_FEE = 0
 
 // Encapsulate sparkWallet in a closure
-const createSparkWalletAPI = ({ ecdhKeyPair, devicePubkey, ReactNativeWebView }) => {
+const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   const sparkWallet = {}
 
   const getMnemonicHash = (mnemonic) => {
@@ -59,7 +59,7 @@ const createSparkWalletAPI = ({ ecdhKeyPair, devicePubkey, ReactNativeWebView })
     }
 
     try {
-      const encrypted = await encryptMessage(ecdhKeyPair.privateKey, devicePubkey, JSON.stringify(message))
+      const encrypted = await encryptMessage(sharedKey, JSON.stringify(message))
       ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
     } catch (err) {
       console.log('Encryption error during handleTransfer:', err)

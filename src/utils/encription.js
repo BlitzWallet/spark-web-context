@@ -15,7 +15,7 @@ const hexToUint8 = (hex) => {
 
   return arr
 }
-const uint8ToWordArray = (u8) => CryptoJS.lib.WordArray.create(u8)
+
 const arrayBufferToBase64 = (buf) => {
   // buf is BufferSource / Uint8Array
   let binary = ''
@@ -24,23 +24,29 @@ const arrayBufferToBase64 = (buf) => {
   for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i])
   return btoa(binary)
 }
-const base64ToWordArray = (b64) => CryptoJS.enc.Base64.parse(b64)
 
-function deriveAesKeyFromSharedX(sharedXUint8) {
-  const keyBytes = hkdf(sha256, sharedXUint8, new Uint8Array(0), new TextEncoder().encode('ecdh-aes-key'), 32)
+export function deriveAesKey(priv, pub) {
+  const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
+  const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
+
+  const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
+
+  const sharedX = sharedPoint.slice(1, 33) // Uint8Array
+  const keyBytes = hkdf(sha256, sharedX, new Uint8Array(0), new TextEncoder().encode('ecdh-aes-key'), 32)
+
   return keyBytes
 }
 
-export async function encryptMessage(priv, pub, text) {
+export async function encryptMessage(aesKeyBytes, text) {
   try {
-    const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
-    const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
+    // const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
+    // const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
 
-    const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
+    // const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
 
-    const sharedX = sharedPoint.slice(1, 33) // Uint8Array
+    // const sharedX = sharedPoint.slice(1, 33) // Uint8Array
 
-    const aesKeyBytes = deriveAesKeyFromSharedX(sharedX) // Uint8Array(32)
+    // const aesKeyBytes = deriveAesKeyFromSharedX(sharedX) // Uint8Array(32)
 
     const ivBytes = window.crypto.getRandomValues(new Uint8Array(12))
     const cipher = aes256gcm(aesKeyBytes, ivBytes) // Initialize GCM
@@ -58,14 +64,14 @@ export async function encryptMessage(priv, pub, text) {
   }
 }
 
-export async function decryptMessage(priv, pub, encryptedText) {
+export async function decryptMessage(aesKeyBytes, encryptedText) {
   try {
-    const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
-    const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
+    // const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
+    // const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
 
-    const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
-    const sharedX = sharedPoint.slice(1, 33)
-    const aesKeyBytes = deriveAesKeyFromSharedX(sharedX)
+    // const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
+    // const sharedX = sharedPoint.slice(1, 33)
+    // const aesKeyBytes = deriveAesKeyFromSharedX(sharedX)
     if (!encryptedText.includes('?iv=') || !encryptedText.includes('&tag=')) {
       throw new Error('Missing IV or auth tag')
     }

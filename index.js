@@ -1,17 +1,19 @@
 import { SparkAPI } from "./src/spark.js";
 import { loadKeys, sendTestingMessage } from "./src/tests.js";
-import { decryptMessage, encryptMessage } from "./src/utils/encription.js";
+import {
+  decryptMessage,
+  deriveAesKey,
+  encryptMessage,
+} from "./src/utils/encription.js";
 import { generateECDHKey } from "./src/utils/encriptionKeys.js";
 
 // Encapsulate logic to avoid global variables
 (function initializeSparkWebContext(ReactNativeWebView) {
-  let ecdhKeyPair = {};
-  let devicePubkey = null;
   let sparkAPI = SparkAPI({
-    ecdhKeyPair: null,
-    devicePubkey: null,
+    sharedKey: null,
     ReactNativeWebView: window.ReactNativeWebView,
   });
+  let sharedKey = null;
   const processedMessageIds = new Set();
 
   // Mock WebView for browser testing (remove in production)
@@ -49,13 +51,12 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
 
       if (data?.action === "handshake:init" && data?.args?.pubN) {
         processedMessageIds.clear();
-        ecdhKeyPair = await generateECDHKey();
-        devicePubkey = data.args.pubN;
+        const ecdhKeyPair = await generateECDHKey();
+        sharedKey = deriveAesKey(ecdhKeyPair.privateKey, data.args.pubN);
 
         // Reinitialize SparkAPI with encryption keys and WebView
         sparkAPI = SparkAPI({
-          ecdhKeyPair: ecdhKeyPair,
-          devicePubkey: devicePubkey,
+          sharedKey,
           ReactNativeWebView: window.ReactNativeWebView,
         });
 
@@ -65,8 +66,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
           type: "handshake:reply",
           pubW: Buffer.from(ecdhKeyPair.publicKey).toString("hex"),
           runtimeNonce: await encryptMessage(
-            ecdhKeyPair.privateKey,
-            devicePubkey,
+            sharedKey,
             window.__STARTUP_NONCE__
           ),
           isResponse: true,
@@ -78,11 +78,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       }
 
       if (data.encrypted) {
-        const decrypted = await decryptMessage(
-          ecdhKeyPair?.privateKey,
-          devicePubkey,
-          data.encrypted
-        );
+        const decrypted = await decryptMessage(sharedKey, data.encrypted);
         const msg = JSON.parse(decrypted);
         data = msg;
       }
@@ -110,8 +106,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       };
 
       const encrypted = await encryptMessage(
-        ecdhKeyPair?.privateKey,
-        devicePubkey,
+        sharedKey,
         JSON.stringify(response)
       );
       ReactNativeWebView.postMessage(
