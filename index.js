@@ -15,19 +15,9 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
   });
   let sharedKey = null;
   const processedMessageIds = new Set();
-
-  // Mock WebView for browser testing (remove in production)
-  if (process.env.NODE_ENV !== "production" && !ReactNativeWebView) {
-    console.log("🧩 Mocking ReactNativeWebView for local testing...");
-    ReactNativeWebView = {
-      postMessage: (msg) => {
-        console.log("[Mock postMessage] -> RN:", msg);
-        setTimeout(() => {
-          window.dispatchEvent(new MessageEvent("message", { data: msg }));
-        }, 500);
-      },
-    };
-  }
+  let expectedSequence = 0;
+  let handshakeComplete = false;
+  const MESSAGE_TIMEOUT_MS = 30000; // 30 seconds
 
   async function handleMessage(event) {
     try {
@@ -50,6 +40,12 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       }
 
       if (data?.action === "handshake:init" && data?.args?.pubN) {
+        if (handshakeComplete) {
+          throw new Error(
+            "Handshake already complete, ignoring subsequent attempt"
+          );
+        }
+
         const ecdhKeyPair = await generateECDHKey();
         sharedKey = deriveAesKey(ecdhKeyPair.privateKey, data.args.pubN);
 
@@ -72,8 +68,14 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         };
         console.log("Session key established with native");
         processedMessageIds.add(data.id);
+        handshakeComplete = true;
+        expectedSequence = 1;
         ReactNativeWebView.postMessage(JSON.stringify(response));
         return;
+      }
+
+      if (!handshakeComplete) {
+        throw new Error("Received message before handshake complete");
       }
 
       if (data.encrypted) {
@@ -85,6 +87,34 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       if (data.id && processedMessageIds.has(data.id)) {
         console.log(`Duplicate message ID ${data.id} ignored`);
         return;
+      }
+
+      // Validate sequence number (prevent replay)
+      if (typeof data.sequence === "number") {
+        if (data.sequence < expectedSequence) {
+          throw new Error(
+            `SECURITY: Rejected old message: seq ${data.sequence} < ${expectedSequence}`
+          );
+        }
+        if (data.sequence !== expectedSequence) {
+          throw new Error(
+            `SECURITY: Sequence gap: expected ${expectedSequence}, got ${data.sequence}`
+          );
+        }
+        expectedSequence = data.sequence + 1;
+      }
+
+      // Validate timestamp (prevent very old replays)
+      if (typeof data.timestamp === "number") {
+        const age = Date.now() - data.timestamp;
+        if (age > MESSAGE_TIMEOUT_MS) {
+          throw new Error(`SECURITY: Rejected stale message: ${age}ms old`);
+        }
+        if (age < -5000) {
+          throw new Error(
+            `SECURITY: Rejected future message: ${age}ms in future`
+          );
+        }
       }
       processedMessageIds.add(data.id);
 
