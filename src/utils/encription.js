@@ -25,14 +25,14 @@ const arrayBufferToBase64 = (buf) => {
   return btoa(binary)
 }
 
-export function deriveAesKey(priv, pub) {
+export function deriveAesKey(priv, pub, nonce) {
   const privHex = typeof priv === 'string' ? priv : Buffer.from(priv).toString('hex')
   const pubHex = typeof pub === 'string' ? pub : Buffer.from(pub).toString('hex')
 
   const sharedPoint = getSharedSecret(hexToUint8(privHex), hexToUint8(pubHex), true)
 
   const sharedX = sharedPoint.slice(1, 33) // Uint8Array
-  const keyBytes = hkdf(sha256, sharedX, new Uint8Array(0), new TextEncoder().encode('ecdh-aes-key'), 32)
+  const keyBytes = hkdf(sha256, sharedX, new Uint8Array(0), new TextEncoder().encode('ecdh-aes-key:' + nonce), 32)
 
   return keyBytes
 }

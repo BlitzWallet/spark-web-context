@@ -47,7 +47,11 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         }
 
         const ecdhKeyPair = await generateECDHKey();
-        sharedKey = deriveAesKey(ecdhKeyPair.privateKey, data.args.pubN);
+        sharedKey = deriveAesKey(
+          ecdhKeyPair.privateKey,
+          data.args.pubN,
+          window.__STARTUP_NONCE__
+        );
 
         // Reinitialize SparkAPI with encryption keys and WebView
         sparkAPI = SparkAPI({
