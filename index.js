@@ -166,10 +166,43 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
       }
     }
   }
+  async function handleCSPViolation(event) {
+    const violation = {
+      type: "security:csp-violation",
+      blocked: event.blockedURI,
+      directive: event.violatedDirective,
+      sourceFile: event.sourceFile,
+      lineNumber: event.lineNumber,
+    };
+
+    console.error("CSP VIOLATION:", violation);
+
+    if (sharedKey) {
+      const encrypted = await encryptMessage(
+        sharedKey,
+        JSON.stringify(violation)
+      );
+      window.ReactNativeWebView?.postMessage(
+        JSON.stringify({
+          encrypted,
+          isResponse: true,
+        })
+      );
+    } else {
+      window.ReactNativeWebView?.postMessage(
+        JSON.stringify({
+          ...violation,
+          isResponse: true,
+          unencrypted: true,
+        })
+      );
+    }
+  }
 
   // Attach event listeners
   window.addEventListener("message", handleMessage);
   document.addEventListener("message", handleMessage);
+  document.addEventListener("securitypolicyviolation", handleCSPViolation);
 
   // Expose sparkAPI to React Native
   // window.sparkAPI = sparkAPI;

@@ -92,7 +92,7 @@ console.log(`Generated ${hashes.length} CSP script hashes.`);
 // === Inject strict CSP meta with placeholder nonce ===
 const csp = [
   `default-src 'none'`,
-  `script-src 'self' 'nonce-__INJECT_NONCE__' 'unsafe-eval' 'wasm-unsafe-eval' ${hashes.join(
+  `script-src 'self' 'nonce-__INJECT_NONCE__' 'wasm-unsafe-eval' ${hashes.join(
     " "
   )}`,
   `connect-src 'self' https: wss:`,
