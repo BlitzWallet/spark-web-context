@@ -181,12 +181,10 @@ async function run() {
 
   // Final decision
   if (hashesMismatch || fileHashMismatch) {
-    console.log(
-      "✅ Tamper detected (either CSP hashes or file hash mismatch)."
-    );
+    console.log("Tamper detected (either CSP hashes or file hash mismatch).");
     process.exit(0);
   } else {
-    console.error("❌ Tamper NOT detected — test failed.");
+    console.error("Tamper NOT detected — test failed.");
     process.exit(1);
   }
 }
