@@ -17,6 +17,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
   const processedMessageIds = new Set();
   let expectedSequence = 0;
   let handshakeComplete = false;
+  let handshakeInProgress = false;
   const MESSAGE_TIMEOUT_MS = 30000; // 30 seconds
 
   async function handleMessage(event) {
@@ -45,6 +46,12 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
             "Handshake already complete, ignoring subsequent attempt"
           );
         }
+        if (handshakeInProgress) {
+          throw new Error(
+            "Handshake already in progress, ignoring subsequent attempt"
+          );
+        }
+        handshakeInProgress = true;
 
         const ecdhKeyPair = await generateECDHKey();
         sharedKey = deriveAesKey(
@@ -137,6 +144,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         result: JSON.stringify(result),
         isResponse: true,
       };
+      data = null; //clear data field after use
 
       const encrypted = await encryptMessage(
         sharedKey,
