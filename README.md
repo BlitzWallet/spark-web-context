@@ -10,9 +10,9 @@ If the hash matches—indicating the bundle has not been tampered with—the Rea
 
 Next, the React Native app generates a random private and public key pair (unique for the session) and initiates a handshake with the WebView. The WebView, in turn, generates its own key pair, creates a combined key (locked to the sessions random nonce), and responds with a handshake reply containing its public key and the random nonce encrypted with the combined key.
 
-The React Native app then generates it's combined key (locked to the expected nonce) decrypts the nonce and verifies that it matches the one originally injected into the HTML. If the validation succeeds, this confirms that the HTML bundle is authentic, the WebView is legitimate, and all subsequent communication is secure.
+The React Native app then generates its combined key (locked to the expected nonce), decrypts the nonce, and verifies that it matches the one originally injected into the HTML. If the validation succeeds, this confirms that the HTML bundle is authentic, the WebView is legitimate, and all subsequent communication is secure.
 
-Each event exchanged between the React Native app and the WebView includes a unique event ID, sequance number, and timestamp. The WebView tracks these IDs internally to prevent duplicate or replayed events from being processed. Because every session uses a newly generated encryption key, messages from previous sessions cannot be decrypted—ensuring message uniqueness across sessions and preventing replay attacks. During the same session the sequance number and timestamp prevent replay attacks.
+Each event exchanged between the React Native app and the WebView includes a unique event ID, sequence number, and timestamp. The WebView tracks these IDs internally to prevent duplicate or replayed events from being processed. Because every session uses a newly generated encryption key, messages from previous sessions cannot be decrypted—ensuring message uniqueness across sessions and preventing replay attacks. During the same session, the sequence number and timestamp prevent replay attacks.
 
 The WebView environment itself is heavily locked down to reduce its attack surface. Features such as DOM storage, caching, and third-party cookies are disabled, and file access is tightly restricted. The WebView runs in incognito mode with debugging disabled, enforces a strict originWhitelist of local file URLs, and blocks all external or unverified requests via the onShouldStartLoadWithRequest callback. Additionally, if the WebView process terminates, it is automatically reloaded with all session keys and pending requests cleared, ensuring no residual data or state persists across reloads.
 
@@ -28,7 +28,7 @@ Key principles:
 
 - Default policy denies everything by default and explicitly whitelists only what is necessary.
 - Inline scripts must be accompanied by a valid nonce or prehashed value during build, ensuring only trusted, injected code runs.
-- Script execution must be constrained to the app’s own context while permitting the required dynamic capabilities (e.g., 'unsafe-eval' and 'wasm-unsafe-eval' are allowed in this setup to support certain WebView and WebAssembly scenarios).
+- Script execution must be constrained to the app’s own context while permitting the required dynamic capabilities (e.g., 'wasm-unsafe-eval' is allowed in this setup to support certain WebView and WebAssembly scenarios).
 - External connections are restricted to secure origins (HTTPS) and WebSocket Secure (WSS) endpoints.
 - All other potential attack surfaces (e.g., object sources, framing) are disabled.
 - The nonce is dynamically injected per session to align with the per-session injection of the nonce into the HTML bundle.
