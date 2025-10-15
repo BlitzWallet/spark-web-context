@@ -35,7 +35,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
       const { wallet } = await SparkWallet.initialize({
         mnemonicOrSeed: mnemonic,
-        options: { network: 'MAINNET' },
+        options: {
+          network: 'MAINNET',
+          optimizationOptions: {
+            multiplicity: 2,
+            auto: true,
+          },
+        },
       })
       mnemonic = null
 
