@@ -196,9 +196,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@buildonspark/spark-sdk@npm:^0.4.2":
-  version: 0.4.2
-  resolution: "@buildonspark/spark-sdk@npm:0.4.2"
+"@buildonspark/spark-sdk@npm:^0.4.3":
+  version: 0.4.3
+  resolution: "@buildonspark/spark-sdk@npm:0.4.3"
   dependencies:
     "@bitcoinerlab/secp256k1": ^1.1.1
     "@bufbuild/protobuf": ^2.2.5
@@ -246,7 +246,7 @@ __metadata:
       optional: true
     react-native-get-random-values:
       optional: true
-  checksum: 7ec41a0ab25b4b270d4f471e6572ccaa976eea7ddf64ad6de7101009b8e5a7ebb047761f8b3645aec9811b2ecd57b4849e5ee74e3cb97f8cd1a9a41ff355f149
+  checksum: f0702933c39f341a709be0adc1d43d82ecda63e92c90f36afb886a40becd5b9305e1b5787bf0c384b9623d5e1aeaff3d11df955ecd4392a11d2d2808db614444
   languageName: node
   linkType: hard
 
@@ -4658,7 +4658,7 @@ __metadata:
   resolution: "spark-web-context@workspace:."
   dependencies:
     "@babel/core": ^7.28.4
-    "@buildonspark/spark-sdk": ^0.4.2
+    "@buildonspark/spark-sdk": ^0.4.3
     "@ecies/ciphers": ^0.2.4
     "@noble/hashes": ^2.0.1
     "@noble/secp256k1": ^3.0.0
