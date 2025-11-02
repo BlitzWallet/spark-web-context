@@ -23,6 +23,7 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
   async function handleMessage(event) {
     try {
       if (typeof event.data !== "string") return;
+      const receivedAt = Date.now();
       let data = JSON.parse(event.data);
 
       if (data.isResponse) return;
@@ -117,16 +118,27 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
 
       // Validate timestamp (prevent very old replays)
       if (typeof data.timestamp === "number") {
-        const age = Date.now() - data.timestamp;
-        if (age > MESSAGE_TIMEOUT_MS) {
-          throw new Error(`SECURITY: Rejected stale message: ${age}ms old`);
-        }
-        if (age < -5000) {
+        const wallTimeElapsed = receivedAt - data.timestamp;
+
+        const wasHidden = document.hidden;
+        const MAX_HIDDEN_GRACE = 3 * 60_000;
+
+        if (
+          wallTimeElapsed >
+          MESSAGE_TIMEOUT_MS + (wasHidden ? MAX_HIDDEN_GRACE : 0)
+        ) {
           throw new Error(
-            `SECURITY: Rejected future message: ${age}ms in future`
+            `SECURITY: Rejected stale message: ${wallTimeElapsed}ms old`
+          );
+        }
+
+        if (wallTimeElapsed < -5000) {
+          throw new Error(
+            `SECURITY: Rejected future message: ${wallTimeElapsed}ms in future`
           );
         }
       }
+
       processedMessageIds.add(data.id);
 
       if (data.action === "simulate_crash") {
