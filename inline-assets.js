@@ -7,49 +7,70 @@ const htmlFile = path.join(distDir, "index.html");
 
 let html = fs.readFileSync(htmlFile, "utf8");
 
-// === Inline all external JS files ===
-const scriptTagRegex = /<script[^>]*src=["']([^"']*\.js)["'][^>]*><\/script>/g;
-const scriptTags = [];
-let match;
+// // === Inline all external JS files ===
+// const scriptTagRegex = /<script[^>]*src=["']([^"']+\.js)["'][^>]*><\/script>/gi;
+// const scriptTags = [];
+// let match;
 
-while ((match = scriptTagRegex.exec(html)) !== null) {
-  scriptTags.push({ fullTag: match[0], src: match[1] });
-}
+// while ((match = scriptTagRegex.exec(html)) !== null) {
+//   scriptTags.push({ fullTag: match[0], src: match[1] });
+// }
 
-console.log(`Found ${scriptTags.length} external <script> tags.`);
+// console.log(`Found ${scriptTags.length} external <script> tags.`);
 
-for (const { fullTag, src } of scriptTags) {
-  const fileName = path.basename(src);
-  const jsFilePath = path.join(distDir, fileName);
+// // Collect all inlined scripts to insert before </head>
+// let inlinedScripts = "";
 
-  if (fs.existsSync(jsFilePath)) {
-    const jsContent = fs.readFileSync(jsFilePath, "utf8");
-    console.log(
-      `Inlining: ${fileName} (${(jsContent.length / 1024).toFixed(1)} KB)`
-    );
+// for (const { fullTag, src } of scriptTags) {
+//   // Handle both absolute and relative paths
+//   const fileName = src.startsWith("/") ? src.slice(1) : src;
+//   const jsFilePath = path.join(distDir, fileName);
 
-    html = html.replace(
-      fullTag,
-      `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>`
-    );
+//   if (fs.existsSync(jsFilePath)) {
+//     const jsContent = fs.readFileSync(jsFilePath, "utf8");
+//     console.log(
+//       `Inlining: ${fileName} (${(jsContent.length / 1024).toFixed(1)} KB)`
+//     );
 
-    fs.unlinkSync(jsFilePath);
-  } else {
-    console.warn(`Missing file: ${fileName}`);
-  }
-}
+//     // Remove the external script tag
+//     html = html.replace(fullTag, "");
 
-// Inline any remaining JS files (not referenced)
-const remainingJs = fs.readdirSync(distDir).filter((f) => f.endsWith(".js"));
-if (remainingJs.length > 0) {
-  let inlineScripts = "";
-  for (const file of remainingJs) {
-    const jsContent = fs.readFileSync(path.join(distDir, file), "utf8");
-    inlineScripts += `<script>\n// Inlined from ${file}\n${jsContent}\n</script>\n`;
-    fs.unlinkSync(path.join(distDir, file));
-  }
-  html = html.replace("</body>", `${inlineScripts}</body>`);
-}
+//     // Add to inlined scripts collection
+//     inlinedScripts += `<script>\n// Inlined from ${fileName}\n${jsContent}\n</script>\n`;
+
+//     // Delete the external JS file
+//     fs.unlinkSync(jsFilePath);
+//     console.log(`Deleted: ${fileName}`);
+//   } else {
+//     console.warn(`Missing file: ${jsFilePath}`);
+//   }
+// }
+
+// // Inline any remaining JS files not referenced in HTML
+// const remainingJs = fs.readdirSync(distDir).filter((f) => f.endsWith(".js"));
+// if (remainingJs.length > 0) {
+//   console.log(`Found ${remainingJs.length} unreferenced JS files.`);
+//   for (const file of remainingJs) {
+//     const jsContent = fs.readFileSync(path.join(distDir, file), "utf8");
+//     console.log(`Inlining unreferenced: ${file}`);
+//     inlinedScripts += `<script>\n// Inlined from ${file}\n${jsContent}\n</script>\n`;
+//     fs.unlinkSync(path.join(distDir, file));
+//     console.log(`Deleted: ${file}`);
+//   }
+// }
+
+// Insert all inlined scripts before </head> (or after <head> if no closing tag found)
+// if (html.includes("</head>")) {
+//   html = html.replace("</head>", `${inlinedScripts}</head>`);
+//   console.log("Inserted inlined scripts before </head>");
+// } else if (html.includes("<head>")) {
+//   html = html.replace(/<head>/, `<head>\n${inlinedScripts}`);
+//   console.log("Inserted inlined scripts after <head>");
+// } else {
+//   // No head tag, insert at the beginning
+//   html = inlinedScripts + html;
+//   console.log("No <head> tag found, prepended inlined scripts");
+// }
 
 // === Insert startup nonce snippet (auto-reads its nonce at runtime) ===
 const nonceScript = `<script nonce="__INJECT_NONCE__">
@@ -76,8 +97,9 @@ if (html.includes("<head>")) {
 // === Generate CSP hashes for all inline scripts ===
 const inlineScriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
 const hashes = [];
-while ((match = inlineScriptRegex.exec(html)) !== null) {
-  const scriptContent = match[1];
+let hashMatch;
+while ((hashMatch = inlineScriptRegex.exec(html)) !== null) {
+  const scriptContent = hashMatch[1];
   if (!scriptContent || !scriptContent.trim()) continue;
 
   const hash = crypto

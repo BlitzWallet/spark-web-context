@@ -180,15 +180,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@bitcoinerlab/secp256k1@npm:^1.1.1":
-  version: 1.2.0
-  resolution: "@bitcoinerlab/secp256k1@npm:1.2.0"
-  dependencies:
-    "@noble/curves": ^1.7.0
-  checksum: c95eda77bc271f178d19a9c48cce53e5a303f6710dbd650aa24405416d87b52ab03038b7e28cc55150a0cdf0bd463d2b299791777c332c1556c86d03159e965a
-  languageName: node
-  linkType: hard
-
 "@bufbuild/protobuf@npm:^2.0.0, @bufbuild/protobuf@npm:^2.2.5":
   version: 2.10.1
   resolution: "@bufbuild/protobuf@npm:2.10.1"
@@ -196,11 +187,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@buildonspark/spark-sdk@npm:0.4.4":
-  version: 0.4.4
-  resolution: "@buildonspark/spark-sdk@npm:0.4.4"
+"@buildonspark/spark-sdk@npm:^0.4.5":
+  version: 0.4.5
+  resolution: "@buildonspark/spark-sdk@npm:0.4.5"
   dependencies:
-    "@bitcoinerlab/secp256k1": ^1.1.1
     "@bufbuild/protobuf": ^2.2.5
     "@lightsparkdev/core": ^1.4.4
     "@noble/curves": ^1.8.0
@@ -234,6 +224,7 @@ __metadata:
     nice-grpc-opentelemetry: ^0.1.18
     nice-grpc-web: ^3.3.7
     ts-proto: ^2.6.1
+    ua-parser-js: ^2.0.6
     uuidv7: ^1.0.2
   peerDependencies:
     react: ">=18.2.0"
@@ -246,7 +237,7 @@ __metadata:
       optional: true
     react-native-get-random-values:
       optional: true
-  checksum: 770262a1078d3b654ace746044327e662d76b7e844b5e598b4f28798d3db935b480e79d65af87895edaf0d1fca868a5e0eab28091b7318fdb78fafc9407f524c
+  checksum: 478122f63ef61872c565ae36c4090b35da8043298f8ec3abfcde02ce9b8450887abbb7ef4a39331be0289fa86f613a8b99507ec4fbac0722ce0d36757925b7b8
   languageName: node
   linkType: hard
 
@@ -487,7 +478,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.7.0, @noble/curves@npm:^1.8.0, @noble/curves@npm:^1.9.7, @noble/curves@npm:~1.9.0":
+"@noble/curves@npm:^1.8.0, @noble/curves@npm:^1.9.7, @noble/curves@npm:~1.9.0":
   version: 1.9.7
   resolution: "@noble/curves@npm:1.9.7"
   dependencies:
@@ -2152,6 +2143,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"detect-europe-js@npm:^0.1.2":
+  version: 0.1.2
+  resolution: "detect-europe-js@npm:0.1.2"
+  checksum: 5a69602302955f50d36dc880ccecb481f24976f2f242aa0b359b5a6477b7e5085bb9bc7bdefdbf3a5bb9fbc3a8e892adda23dc65b9304edac49807caf75446e3
+  languageName: node
+  linkType: hard
+
 "detect-libc@npm:^1.0.3":
   version: 1.0.3
   resolution: "detect-libc@npm:1.0.3"
@@ -3250,6 +3248,13 @@ __metadata:
   dependencies:
     isobject: ^3.0.1
   checksum: 2a401140cfd86cabe25214956ae2cfee6fbd8186809555cd0e84574f88de7b17abacb2e477a6a658fa54c6083ecbda1e6ae404c7720244cd198903848fca70ca
+  languageName: node
+  linkType: hard
+
+"is-standalone-pwa@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "is-standalone-pwa@npm:0.1.1"
+  checksum: bbd2ee7cbea985139f66fe8785e7699f52311e9c14d74190659885222b79dd1e8845b02f69b9221a23a2b4b00e8d4bea0a5a2603b2f26cb6d2071d46093ccf84
   languageName: node
   linkType: hard
 
@@ -4667,7 +4672,7 @@ __metadata:
   resolution: "spark-web-context@workspace:."
   dependencies:
     "@babel/core": ^7.28.4
-    "@buildonspark/spark-sdk": 0.4.4
+    "@buildonspark/spark-sdk": ^0.4.5
     "@ecies/ciphers": ^0.2.4
     "@noble/hashes": ^2.0.1
     "@noble/secp256k1": ^3.0.0
@@ -4984,6 +4989,26 @@ __metadata:
     media-typer: 0.3.0
     mime-types: ~2.1.24
   checksum: 2c8e47675d55f8b4e404bcf529abdf5036c537a04c2b20177bcf78c9e3c1da69da3942b1346e6edb09e823228c0ee656ef0e033765ec39a70d496ef601a0c657
+  languageName: node
+  linkType: hard
+
+"ua-is-frozen@npm:^0.1.2":
+  version: 0.1.2
+  resolution: "ua-is-frozen@npm:0.1.2"
+  checksum: 139c89b175bd4e3aeed2ebd1c972ce078e9507ade5f9d704d4ac0a916b2a5e8ada0bc6f616a8c39415e6b602e967ab172d0c44f0dfe353ce8104139897472f48
+  languageName: node
+  linkType: hard
+
+"ua-parser-js@npm:^2.0.6":
+  version: 2.0.6
+  resolution: "ua-parser-js@npm:2.0.6"
+  dependencies:
+    detect-europe-js: ^0.1.2
+    is-standalone-pwa: ^0.1.1
+    ua-is-frozen: ^0.1.2
+  bin:
+    ua-parser-js: script/cli.js
+  checksum: 740f52fb43a8218530e17a28effec3a2917789158bb8891149ccee51e4a59e87a8e9e003150d56862e2d31a336a5ecaeb16802ce7144f1c3fa576bedc94befd5
   languageName: node
   linkType: hard
 
