@@ -100,6 +100,23 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const setPrivacyEnabled = async ({ mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+
+      const walletSetings = await wallet.getWalletSettings()
+
+      if (!walletSetings?.privateEnabled) {
+        await wallet.setPrivacyEnabled(true)
+      }
+
+      return { didWork: true }
+    } catch (err) {
+      console.log('Get spark balance error', err)
+      return { didWork: false }
+    }
+  }
+
   const getSparkBalance = async ({ mnemonic }) => {
     try {
       const wallet = getWallet(mnemonic)
@@ -494,6 +511,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSparkTransactions,
     getSparkTokenTransactions,
     findTransactionTxFromTxHistory,
+    setPrivacyEnabled,
   }
 }
 
