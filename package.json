@@ -6,7 +6,7 @@
   "scripts": {
     "prepack": "npm run build",
     "start": "webpack serve --mode development",
-    "build": "webpack && node inline-assets.js && yarn sign",
+    "build": "webpack && node inline-assets.js && npm run sign",
     "sign": "node build-and-hash.js"
   },
   "author": "Blake Kaufman",

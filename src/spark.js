@@ -225,6 +225,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         receiverSparkAddress: receiverSparkAddress.toLowerCase(),
         amountSats,
       })
+      delete response.leaves
       return { didWork: true, response }
     } catch (err) {
       console.log('Send spark payment error', err)
