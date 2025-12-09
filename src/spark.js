@@ -267,7 +267,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         invoice: invoice.toLowerCase(),
         maxFeeSats: maxFeeSats,
         amountSatsToSend: amountSat,
+        preferSpark: true,
       })
+      delete paymentResponse.leaves
       return { didWork: true, paymentResponse }
     } catch (err) {
       console.log('Send spark lightning payment error', err)
@@ -304,6 +306,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         amountSats,
         memo,
         expirySeconds,
+        includeSparkAddress: true,
       })
       return { didWork: true, response }
     } catch (err) {
