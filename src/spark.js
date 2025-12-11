@@ -440,6 +440,17 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const getSingleTxDetails = async ({ mnemonic, id }) => {
+    try {
+      const response = await getWallet(mnemonic).getTransfer(id)
+      if (!response) throw new Error('No tx found')
+      delete response.leaves
+      return response
+    } catch (err) {
+      console.log('error getting single tx details', err)
+    }
+  }
+
   const findTransactionTxFromTxHistory = async ({ sparkTxId, previousOffset = 0, previousTxs = [], mnemonic }) => {
     try {
       // Early return with cached transaction
@@ -515,6 +526,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSparkTransactions,
     getSparkTokenTransactions,
     findTransactionTxFromTxHistory,
+    getSingleTxDetails,
     setPrivacyEnabled,
   }
 }
