@@ -1,12 +1,15 @@
 import { SparkWallet } from '@buildonspark/spark-sdk'
+// import { FlashnetClient } from '@flashnet/sdk'
 import sha256Hash from './utils/hash.js'
 import { encryptMessage } from './utils/encription.js'
+import { FlashnetAPI } from './flashnet.js'
 
 const SPARK_TO_SPARK_FEE = 0
 
 // Encapsulate sparkWallet in a closure
 const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   const sparkWallet = {}
+  const flashnetClients = {}
 
   const getMnemonicHash = (mnemonic) => {
     const hash = sha256Hash(mnemonic)
@@ -43,14 +46,27 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
           },
         },
       })
-      mnemonic = null
 
+      mnemonic = null
       sparkWallet[hash] = wallet
+
+      const flashnetAPI = FlashnetAPI(wallet)
+      await flashnetAPI.initializeFlashnetClient()
+      flashnetClients[hash] = flashnetAPI
+
       return { isConnected: true }
     } catch (err) {
       console.log('Initialize spark wallet error function', err)
       return { isConnected: false, error: err.message }
     }
+  }
+
+  const getFlashnetClient = (hash) => {
+    const client = flashnetClients[hash]
+    if (!client) {
+      throw new Error('Flashnet client not initialized')
+    }
+    return client
   }
 
   // --- Updated handleTransfer with encryption support ---
@@ -500,6 +516,106 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  // Flashnet
+
+  const listFlashnetPools = async ({ mnemonic }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.listPools()
+    } catch (err) {
+      console.log('List Flashnet pools error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const swapBitcoinToUSDB = async ({
+    poolId,
+    amountSats,
+    bitcoinPubkey,
+    usdbPubkey,
+    maxSlippageBps = 100,
+    mnemonic,
+  }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.swapBitcoinToUSDB({
+        poolId,
+        amountSats,
+        bitcoinPubkey,
+        usdbPubkey,
+        maxSlippageBps,
+      })
+    } catch (err) {
+      console.log('Swap Bitcoin to USDB error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const swapUSDBToBitcoin = async ({
+    poolId,
+    amountUSDB,
+    usdbPubkey,
+    bitcoinPubkey,
+    maxSlippageBps = 100,
+    mnemonic,
+  }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.swapUSDBToBitcoin({
+        poolId,
+        amountUSDB,
+        usdbPubkey,
+        bitcoinPubkey,
+        maxSlippageBps,
+      })
+    } catch (err) {
+      console.log('Swap USDB to Bitcoin error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const payLightningInvoiceWithUSDB = async ({
+    invoice,
+    poolId,
+    usdbPubkey,
+    bitcoinPubkey,
+    amountUSDB,
+    maxSwapSlippageBps = 100,
+    maxLightningFeeSats,
+    mnemonic,
+  }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.payLightningWithUSDB({
+        invoice,
+        poolId,
+        usdbPubkey,
+        bitcoinPubkey,
+        amountUSDB,
+        maxSwapSlippageBps,
+        maxLightningFeeSats,
+      })
+    } catch (err) {
+      console.log('Pay Lightning with USDB error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const estimateUSDBForLightning = async ({ invoice, poolId, usdbPubkey, bitcoinPubkey, mnemonic }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.estimateUSDBForLightningPayment({
+        invoice,
+        poolId,
+        usdbPubkey,
+        bitcoinPubkey,
+      })
+    } catch (err) {
+      console.log('Estimate USDB for Lightning error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   return {
     initializeSparkWallet,
     removeWalletEventListener,
@@ -528,6 +644,11 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     findTransactionTxFromTxHistory,
     getSingleTxDetails,
     setPrivacyEnabled,
+    listFlashnetPools,
+    swapBitcoinToUSDB,
+    swapUSDBToBitcoin,
+    payLightningInvoiceWithUSDB,
+    estimateUSDBForLightning,
   }
 }
 
