@@ -1,460 +1,500 @@
 import { FlashnetClient } from '@flashnet/sdk'
+const BLITZ_PUB_KEY = '031fa6899d8b8267af07cbb5ebbe2834f7e1c8fe9a282232570772ea5d34151ec6'
 
-/**
- * Creates Flashnet AMM functions for USDB swaps and lightning payments
- * @param {Object} sparkWallet - Initialized Spark wallet instance
- * @returns {Object} Object containing all Flashnet swap and lightning functions
- */
-const createFlashnetAPI = (sparkWallet) => {
+export const FlashnetAPI = (wallet) => {
   let flashnetClient = null
 
-  /**
-   * Initialize the Flashnet client with the Spark wallet
-   */
   const initializeFlashnetClient = async () => {
     try {
-      if (flashnetClient) {
-        return { didWork: true, message: 'Client already initialized' }
-      }
-
-      flashnetClient = new FlashnetClient(sparkWallet)
+      flashnetClient = new FlashnetClient(wallet, { autoAuthenticate: true })
       await flashnetClient.initialize()
-
-      return { didWork: true, message: 'Flashnet client initialized successfully' }
+      console.log('Flashnet client initialized in webview')
+      return { didWork: true }
     } catch (err) {
-      console.error('Initialize Flashnet client error:', err)
+      console.error('Flashnet client initialization error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  /**
-   * Get client instance (throws if not initialized)
-   */
   const getClient = () => {
     if (!flashnetClient) {
-      throw new Error('Flashnet client not initialized. Call initializeFlashnetClient first.')
+      throw new Error('Flashnet client not initialized')
     }
     return flashnetClient
   }
 
-  /**
-   * List available pools, optionally filtered
-   * @param {Object} filters - Optional filters { assetA, assetB, poolType }
-   */
-  const listPools = async (filters = {}) => {
+  // Pool Discovery & Querying
+  const findBestPool = async ({ tokenAAddress, tokenBAddress, options = {} }) => {
     try {
       const client = getClient()
-      const pools = await client.listPools(filters)
-      return { didWork: true, pools }
+      const pools = await client.listPools({
+        assetAAddress: tokenAAddress,
+        assetBAddress: tokenBAddress,
+        sort: 'TVL_DESC',
+        minTvl: options.minTvl || 1000,
+        limit: options.limit || 10,
+      })
+
+      if (!pools.pools || pools.pools.length === 0) {
+        return {
+          didWork: false,
+          error: `No pools found for ${tokenAAddress}/${tokenBAddress}`,
+        }
+      }
+
+      return {
+        didWork: true,
+        pool: pools.pools[0],
+        totalAvailable: pools.totalCount,
+      }
     } catch (err) {
-      console.error('List pools error:', err)
+      console.error('Find best pool error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  /**
-   * Get details of a specific pool
-   * @param {string} poolId - The pool public key
-   */
   const getPoolDetails = async ({ poolId }) => {
     try {
       const client = getClient()
       const pool = await client.getPool(poolId)
-      return { didWork: true, pool }
+
+      return {
+        didWork: true,
+        pool,
+        marketData: {
+          tvl: pool.tvlAssetB,
+          volume24h: pool.volume24hAssetB,
+          priceChange24h: pool.priceChangePercent24h,
+          currentPrice: pool.currentPriceAInB,
+          reserves: {
+            assetA: pool.assetAReserve,
+            assetB: pool.assetBReserve,
+          },
+        },
+      }
     } catch (err) {
       console.error('Get pool details error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  // ============================================
-  // BITCOIN <-> USDB SWAP FUNCTIONS
-  // ============================================
-
-  /**
-   * Simulate a Bitcoin -> USDB swap
-   * @param {string} poolId - Pool public key
-   * @param {string} amountSats - Amount in satoshis to swap
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   * @param {string} usdbPubkey - USDB token public key
-   */
-  const simulateBitcoinToUSDB = async ({ poolId, amountSats, bitcoinPubkey, usdbPubkey }) => {
+  const listAllPools = async ({ filters = {} }) => {
     try {
       const client = getClient()
+      const response = await client.listPools({
+        minTvl: filters.minTvl || 0,
+        minVolume24h: filters.minVolume24h || 0,
+        sort: filters.sort || 'TVL_DESC',
+        limit: filters.limit || 50,
+        offset: filters.offset || 0,
+        hostNames: filters.hostNames,
+        curveTypes: filters.curveTypes,
+      })
 
+      return {
+        didWork: true,
+        pools: response.pools,
+        totalCount: response.totalCount,
+      }
+    } catch (err) {
+      console.error('List pools error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const minFlashnetSwapAmounts = async ({ assetHex }) => {
+    try {
+      const client = getClient()
+      const minMap = await client.getMinAmountsMap()
+      // Convert bigInt to staralizable value
+      const assetData = minMap.get(assetHex.toLowerCase())?.toString()
+
+      return {
+        didWork: true,
+        assetData,
+      }
+    } catch (err) {
+      console.error('Get min swap amounts error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  // Swap Simulation & Execution
+  const simulateSwap = async ({ poolId, assetInAddress, assetOutAddress, amountIn }) => {
+    try {
+      const client = getClient()
       const simulation = await client.simulateSwap({
         poolId,
-        assetInAddress: bitcoinPubkey,
-        assetOutAddress: usdbPubkey,
-        amountIn: amountSats,
+        assetInAddress,
+        assetOutAddress,
+        amountIn: amountIn.toString(),
       })
 
       return {
         didWork: true,
         simulation: {
-          amountIn: simulation.amountIn,
-          amountOut: simulation.amountOut,
+          expectedOutput: simulation.amountOut,
+          executionPrice: simulation.executionPrice,
           priceImpact: simulation.priceImpactPct,
-          fee: simulation.fee,
+          poolId: simulation.poolId,
+          feePaidAssetIn: simulation.feePaidAssetIn,
         },
       }
     } catch (err) {
-      console.error('Simulate Bitcoin to USDB error:', err)
+      console.error('Simulate swap error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  /**
-   * Execute a Bitcoin -> USDB swap
-   * @param {string} poolId - Pool public key
-   * @param {string} amountSats - Amount in satoshis to swap
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   * @param {string} usdbPubkey - USDB token public key
-   * @param {number} maxSlippageBps - Max slippage in basis points (100 = 1%)
-   */
-  const swapBitcoinToUSDB = async ({
+  const executeSwap = async ({
     poolId,
-    amountSats,
-    bitcoinPubkey,
-    usdbPubkey,
-    maxSlippageBps = 100, // Default 1% slippage
+    assetInAddress,
+    assetOutAddress,
+    amountIn,
+    minAmountOut,
+    maxSlippageBps = 500,
+    integratorFeeRateBps = 100,
   }) => {
     try {
       const client = getClient()
 
-      // First simulate to get expected output
-      const simulation = await client.simulateSwap({
-        poolId,
-        assetInAddress: bitcoinPubkey,
-        assetOutAddress: usdbPubkey,
-        amountIn: amountSats,
-      })
-
-      // Calculate minimum output with slippage tolerance
-      const minAmountOut = ((BigInt(simulation.amountOut) * BigInt(10000 - maxSlippageBps)) / 10000n).toString()
-
-      // Execute the swap
-      const swap = await client.executeSwap({
-        poolId,
-        assetInAddress: bitcoinPubkey,
-        assetOutAddress: usdbPubkey,
-        amountIn: amountSats,
-        minAmountOut,
-        maxSlippageBps,
-      })
-
-      return {
-        didWork: true,
-        swap: {
-          amountIn: swap.amountIn,
-          amountOut: swap.amountOut,
-          outboundTransferId: swap.outboundTransferId,
-          priceImpact: simulation.priceImpactPct,
-        },
-      }
-    } catch (err) {
-      console.error('Swap Bitcoin to USDB error:', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
-  /**
-   * Simulate a USDB -> Bitcoin swap
-   * @param {string} poolId - Pool public key
-   * @param {string} amountUSDB - Amount of USDB tokens to swap
-   * @param {string} usdbPubkey - USDB token public key
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   */
-  const simulateUSDBToBitcoin = async ({ poolId, amountUSDB, usdbPubkey, bitcoinPubkey }) => {
-    try {
-      const client = getClient()
-
-      const simulation = await client.simulateSwap({
-        poolId,
-        assetInAddress: usdbPubkey,
-        assetOutAddress: bitcoinPubkey,
-        amountIn: amountUSDB,
-      })
-
-      return {
-        didWork: true,
-        simulation: {
-          amountIn: simulation.amountIn,
-          amountOut: simulation.amountOut,
-          priceImpact: simulation.priceImpactPct,
-          fee: simulation.fee,
-        },
-      }
-    } catch (err) {
-      console.error('Simulate USDB to Bitcoin error:', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
-  /**
-   * Execute a USDB -> Bitcoin swap
-   * @param {string} poolId - Pool public key
-   * @param {string} amountUSDB - Amount of USDB tokens to swap
-   * @param {string} usdbPubkey - USDB token public key
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   * @param {number} maxSlippageBps - Max slippage in basis points (100 = 1%)
-   */
-  const swapUSDBToBitcoin = async ({ poolId, amountUSDB, usdbPubkey, bitcoinPubkey, maxSlippageBps = 100 }) => {
-    try {
-      const client = getClient()
-
-      // First simulate to get expected output
-      const simulation = await client.simulateSwap({
-        poolId,
-        assetInAddress: usdbPubkey,
-        assetOutAddress: bitcoinPubkey,
-        amountIn: amountUSDB,
-      })
-
-      // Calculate minimum output with slippage tolerance
-      const minAmountOut = ((BigInt(simulation.amountOut) * BigInt(10000 - maxSlippageBps)) / 10000n).toString()
-
-      // Execute the swap
-      const swap = await client.executeSwap({
-        poolId,
-        assetInAddress: usdbPubkey,
-        assetOutAddress: bitcoinPubkey,
-        amountIn: amountUSDB,
-        minAmountOut,
-        maxSlippageBps,
-      })
-
-      return {
-        didWork: true,
-        swap: {
-          amountIn: swap.amountIn,
-          amountOut: swap.amountOut,
-          outboundTransferId: swap.outboundTransferId,
-          priceImpact: simulation.priceImpactPct,
-        },
-      }
-    } catch (err) {
-      console.error('Swap USDB to Bitcoin error:', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
-  // ============================================
-  // USDB -> LIGHTNING PAYMENT FUNCTION
-  // ============================================
-
-  /**
-   * Pay a Lightning invoice using USDB (swap USDB -> Bitcoin then pay invoice)
-   * This is a two-step process:
-   * 1. Swap USDB to Bitcoin via Flashnet AMM
-   * 2. Pay Lightning invoice using the received Bitcoin
-   *
-   * @param {string} invoice - Lightning invoice to pay
-   * @param {string} poolId - USDB/BTC pool public key
-   * @param {string} usdbPubkey - USDB token public key
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   * @param {string} amountUSDB - Amount of USDB to swap (if invoice has no amount)
-   * @param {number} maxSwapSlippageBps - Max slippage for swap (default 100 = 1%)
-   * @param {string} maxLightningFeeSats - Max fee for lightning payment in sats
-   */
-  const payLightningWithUSDB = async ({
-    invoice,
-    poolId,
-    usdbPubkey,
-    bitcoinPubkey,
-    amountUSDB,
-    maxSwapSlippageBps = 100,
-    maxLightningFeeSats,
-  }) => {
-    try {
-      const client = getClient()
-
-      // Step 1: Get Lightning invoice details to know required amount
-      const invoiceDetails = await client.wallet.decodeLightningInvoice(invoice)
-
-      const invoiceAmountSats = invoiceDetails.amountSats || null
-
-      // Step 2: Calculate USDB needed for the swap
-      let usdbToSwap = amountUSDB
-
-      if (invoiceAmountSats && !amountUSDB) {
-        // We need to simulate reverse: how much USDB for this amount of BTC?
+      let calculatedMinOut = minAmountOut
+      if (!calculatedMinOut) {
         const simulation = await client.simulateSwap({
           poolId,
-          assetInAddress: bitcoinPubkey,
-          assetOutAddress: usdbPubkey,
-          amountIn: invoiceAmountSats,
+          assetInAddress,
+          assetOutAddress,
+          amountIn: amountIn.toString(),
         })
-
-        // Add buffer for slippage
-        usdbToSwap = ((BigInt(simulation.amountOut) * 105n) / 100n).toString() // 5% buffer
+        const output = BigInt(simulation.amountOut)
+        const factor = 10_000n - BigInt(maxSlippageBps)
+        calculatedMinOut = (output * factor) / 10_000n
       }
 
-      // Step 3: Swap USDB to Bitcoin
-      const swapResult = await swapUSDBToBitcoin({
+      const swap = await client.executeSwap({
         poolId,
-        amountUSDB: usdbToSwap,
-        usdbPubkey,
-        bitcoinPubkey,
-        maxSlippageBps: maxSwapSlippageBps,
-      })
-
-      if (!swapResult.didWork) {
-        throw new Error(`Swap failed: ${swapResult.error}`)
-      }
-
-      const bitcoinReceived = swapResult.swap.amountOut
-
-      // Step 4: Pay the Lightning invoice with the Bitcoin
-      const lightningPayment = await client.wallet.payLightningInvoice({
-        invoice: invoice.toLowerCase(),
-        maxFeeSats: maxLightningFeeSats,
-        amountSatsToSend: invoiceAmountSats || null,
-        preferSpark: true,
+        assetInAddress,
+        assetOutAddress,
+        amountIn: amountIn.toString(),
+        minAmountOut: calculatedMinOut.toString(),
+        maxSlippageBps,
+        integratorFeeRateBps,
+        integratorPublicKey: BLITZ_PUB_KEY,
       })
 
       return {
         didWork: true,
-        result: {
-          swap: {
-            usdbSwapped: swapResult.swap.amountIn,
-            bitcoinReceived: swapResult.swap.amountOut,
-            swapTransferId: swapResult.swap.outboundTransferId,
-          },
-          lightning: {
-            paymentHash: lightningPayment.paymentHash,
-            paymentPreimage: lightningPayment.paymentPreimage,
-            amountPaid: lightningPayment.amountSats,
-            feePaid: lightningPayment.feeSats,
-          },
+        swap: {
+          amountOut: swap.amountOut,
+          executionPrice: swap.executionPrice,
+          feeAmount: swap.feeAmount,
+          flashnetRequestId: swap.flashnetRequestId,
+          outboundTransferId: swap.outboundTransferId,
+          poolId: swap.poolId,
         },
       }
     } catch (err) {
-      console.error('Pay Lightning with USDB error:', err)
+      console.error('Execute swap error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  /**
-   * Estimate cost in USDB for paying a Lightning invoice
-   * @param {string} invoice - Lightning invoice
-   * @param {string} poolId - USDB/BTC pool public key
-   * @param {string} usdbPubkey - USDB token public key
-   * @param {string} bitcoinPubkey - Bitcoin asset public key
-   */
-  const estimateUSDBForLightningPayment = async ({ invoice, poolId, usdbPubkey, bitcoinPubkey }) => {
+  const swapBitcoinToToken = async ({ tokenAddress, amountSats, poolId, maxSlippageBps = 500 }) => {
+    try {
+      const BTC_ASSET_ADDRESS = '020202020202020202020202020202020202020202020202020202020202020202'
+
+      let targetPoolId = poolId
+      if (!targetPoolId) {
+        const poolResult = await findBestPool({
+          tokenAAddress: BTC_ASSET_ADDRESS,
+          tokenBAddress: tokenAddress,
+        })
+        if (!poolResult.didWork) {
+          return { didWork: false, error: 'No suitable pool found' }
+        }
+        targetPoolId = poolResult.pool.lpPublicKey
+      }
+
+      return await executeSwap({
+        poolId: targetPoolId,
+        assetInAddress: BTC_ASSET_ADDRESS,
+        assetOutAddress: tokenAddress,
+        amountIn: amountSats,
+        maxSlippageBps,
+      })
+    } catch (err) {
+      console.error('Swap BTC to token error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const swapTokenToBitcoin = async ({ tokenAddress, tokenAmount, poolId, maxSlippageBps = 500 }) => {
+    try {
+      const BTC_ASSET_ADDRESS = '020202020202020202020202020202020202020202020202020202020202020202'
+
+      let targetPoolId = poolId
+      if (!targetPoolId) {
+        const poolResult = await findBestPool({
+          tokenAAddress: tokenAddress,
+          tokenBAddress: BTC_ASSET_ADDRESS,
+        })
+        if (!poolResult.didWork) {
+          return { didWork: false, error: 'No suitable pool found' }
+        }
+        targetPoolId = poolResult.pool.lpPublicKey
+      }
+
+      return await executeSwap({
+        poolId: targetPoolId,
+        assetInAddress: tokenAddress,
+        assetOutAddress: BTC_ASSET_ADDRESS,
+        amountIn: tokenAmount,
+        maxSlippageBps,
+      })
+    } catch (err) {
+      console.error('Swap token to BTC error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  // Lightning Payments
+  const getLightningPaymentQuote = async ({ invoice, tokenAddress }) => {
     try {
       const client = getClient()
+      const quote = await client.getPayLightningWithTokenQuote(invoice, tokenAddress)
 
-      // Get invoice amount
-      const invoiceDetails = await client.wallet.decodeLightningInvoice(invoice)
+      return {
+        didWork: true,
+        quote: {
+          invoiceAmountSats: quote.invoiceAmountSats,
+          estimatedLightningFee: quote.estimatedLightningFee,
+          btcAmountRequired: quote.btcAmountRequired,
+          tokenAmountRequired: quote.tokenAmountRequired,
+          estimatedAmmFee: quote.estimatedAmmFee,
+          executionPrice: quote.executionPrice,
+          priceImpact: quote.priceImpactPct,
+          poolId: quote.poolId,
+          fee: quote.btcAmountRequired - quote.invoiceAmountSats,
+        },
+      }
+    } catch (err) {
+      console.error('Get Lightning quote error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
 
-      if (!invoiceDetails.amountSats) {
+  const payLightningWithToken = async ({
+    invoice,
+    tokenAddress,
+    maxSlippageBps = 500,
+    maxLightningFeeSats,
+    rollbackOnFailure = true,
+    useExistingBtcBalance = false,
+    integratorFeeRateBps = 100,
+  }) => {
+    try {
+      const client = getClient()
+      const result = await client.payLightningWithToken({
+        invoice,
+        tokenAddress,
+        maxSlippageBps,
+        maxLightningFeeSats: maxLightningFeeSats || undefined,
+        rollbackOnFailure,
+        useExistingBtcBalance,
+        integratorFeeRateBps,
+        integratorPublicKey: BLITZ_PUB_KEY,
+      })
+
+      if (result.success) {
+        return {
+          didWork: true,
+          result: {
+            success: true,
+            lightningPaymentId: result.lightningPaymentId,
+            tokenAmountSpent: result.tokenAmountSpent,
+            btcAmountReceived: result.btcAmountReceived,
+            swapTransferId: result.swapTransferId,
+            ammFeePaid: result.ammFeePaid,
+            lightningFeePaid: result.lightningFeePaid,
+            poolId: result.poolId,
+          },
+        }
+      } else {
         return {
           didWork: false,
-          error: 'Invoice has no amount specified. Please provide amountUSDB.',
+          error: result.error,
+          result: {
+            success: false,
+            error: result.error,
+            poolId: result.poolId,
+            tokenAmountSpent: result.tokenAmountSpent,
+            btcAmountReceived: result.btcAmountReceived,
+          },
+        }
+      }
+    } catch (err) {
+      console.error('Pay Lightning with token error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  // Swap History
+  const getUserSwapHistory = async () => {
+    try {
+      const client = getClient()
+      const result = await client.getUserSwaps()
+
+      return {
+        didWork: true,
+        swaps: result.swaps || [],
+        totalCount: result.totalCount || 0,
+      }
+    } catch (err) {
+      console.error('Get swap history error:', err)
+      return { didWork: false, error: err.message, swaps: [] }
+    }
+  }
+
+  // Manual Clawback & Recovery
+  const requestClawback = async ({ sparkTransferId, poolId }) => {
+    try {
+      const client = getClient()
+      const result = await client.clawback({
+        sparkTransferId,
+        lpIdentityPublicKey: poolId,
+      })
+
+      if (!result || result.error) {
+        return {
+          didWork: false,
+          error: result?.error || 'Clawback request failed',
         }
       }
 
-      // Get Lightning fee estimate
-      const lightningFee = await client.wallet.getLightningSendFeeEstimate({
-        encodedInvoice: invoice.toLowerCase(),
-        amountSats: invoiceDetails.amountSats,
-      })
-
-      const totalBitcoinNeeded = BigInt(invoiceDetails.amountSats) + BigInt(lightningFee.feeSats)
-
-      // Simulate reverse swap to get USDB amount needed
-      const simulation = await client.simulateSwap({
-        poolId,
-        assetInAddress: bitcoinPubkey,
-        assetOutAddress: usdbPubkey,
-        amountIn: totalBitcoinNeeded.toString(),
-      })
-
-      return {
-        didWork: true,
-        estimate: {
-          invoiceAmount: invoiceDetails.amountSats,
-          lightningFee: lightningFee.feeSats,
-          totalBitcoinNeeded: totalBitcoinNeeded.toString(),
-          usdbNeeded: simulation.amountOut,
-          swapPriceImpact: simulation.priceImpactPct,
-        },
+      if (result.accepted) {
+        return {
+          didWork: true,
+          accepted: true,
+          message: 'Clawback request accepted',
+          internalRequestId: result.internalRequestId,
+        }
+      } else {
+        return {
+          didWork: false,
+          accepted: false,
+          error: result.error || 'Clawback request rejected by pool',
+        }
       }
     } catch (err) {
-      console.error('Estimate USDB for Lightning payment error:', err)
+      console.error('Request clawback error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  // ============================================
-  // UTILITY FUNCTIONS
-  // ============================================
-
-  /**
-   * Get swap history for the user
-   * @param {number} limit - Number of swaps to retrieve
-   */
-  const getUserSwapHistory = async ({ limit = 50 } = {}) => {
+  // Manual Clawback & Recovery
+  const requestBatchClawback = async ({ transferIds, poolId }) => {
     try {
       const client = getClient()
-      const history = await client.getUserSwaps(undefined, { limit })
+      const result = await client.clawbackMultiple(transferIds, poolId)
 
-      return {
-        didWork: true,
-        swaps: history.swaps,
-        totalCount: history.totalCount,
+      if (!result) {
+        return {
+          didWork: false,
+          error: result?.error || 'Clawback request failed',
+        }
+      }
+
+      if (result.length) {
+        return {
+          didWork: true,
+          result,
+        }
+      } else {
+        return {
+          didWork: false,
+          error: result.error || 'Clawback request rejected by pool',
+        }
       }
     } catch (err) {
-      console.error('Get user swap history error:', err)
+      console.error('Request clawback error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  /**
-   * Get swap history for a specific pool
-   * @param {string} poolId - Pool public key
-   * @param {number} limit - Number of swaps to retrieve
-   */
-  const getPoolSwapHistory = async ({ poolId, limit = 100 }) => {
+  const checkClawbackEligibility = async ({ sparkTransferId }) => {
     try {
       const client = getClient()
-      const history = await client.getPoolSwaps(poolId, { limit })
+      const eligibility = await client.checkClawbackEligibility({ sparkTransferId })
+
+      if (eligibility.accepted) {
+        return {
+          didWork: true,
+          error: null,
+          response: true,
+        }
+      } else {
+        return {
+          didWork: true,
+          error: eligibility.error,
+          response: false,
+        }
+      }
+    } catch (err) {
+      console.error('Check clawback eligibility error:', err)
+      return { didWork: false, error: err.message, response: false }
+    }
+  }
+
+  const checkClawbackStatus = async ({ internalRequestId }) => {
+    try {
+      const client = getClient()
+      const status = await client.checkClawbackStatus({ internalRequestId })
 
       return {
         didWork: true,
-        swaps: history.swaps,
-        totalCount: history.totalCount,
+        status: status.status,
+        transferId: status.transferId,
+        isComplete: status.status === 'completed',
+        isFailed: status.status === 'failed',
       }
     } catch (err) {
-      console.error('Get pool swap history error:', err)
+      console.error('Check clawback status error:', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const listClawbackableTransfers = async ({ limit = 100 }) => {
+    try {
+      const client = getClient()
+      const response = await client.listClawbackableTransfers({ limit })
+
+      return {
+        didWork: true,
+        resposne: response,
+      }
+    } catch (err) {
+      console.error('List clawbackable transfers error:', err)
       return { didWork: false, error: err.message }
     }
   }
 
   return {
-    // Initialization
     initializeFlashnetClient,
-
-    // Pool queries
-    listPools,
+    findBestPool,
     getPoolDetails,
-
-    // Bitcoin <-> USDB swaps
-    simulateBitcoinToUSDB,
-    swapBitcoinToUSDB,
-    simulateUSDBToBitcoin,
-    swapUSDBToBitcoin,
-
-    // USDB -> Lightning payments
-    payLightningWithUSDB,
-    estimateUSDBForLightningPayment,
-
-    // History
+    listAllPools,
+    minFlashnetSwapAmounts,
+    simulateSwap,
+    executeSwap,
+    swapBitcoinToToken,
+    swapTokenToBitcoin,
+    getLightningPaymentQuote,
+    payLightningWithToken,
     getUserSwapHistory,
-    getPoolSwapHistory,
+    requestClawback,
+    requestBatchClawback,
+    checkClawbackEligibility,
+    checkClawbackStatus,
+    listClawbackableTransfers,
   }
 }
-
-export const FlashnetAPI = createFlashnetAPI

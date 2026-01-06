@@ -27,6 +27,14 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     return wallet
   }
 
+  const getFlashnetClient = (hash) => {
+    const client = flashnetClients[hash]
+    if (!client) {
+      throw new Error('Flashnet client not initialized')
+    }
+    return client
+  }
+
   const initializeSparkWallet = async ({ mnemonic }) => {
     try {
       const hash = getMnemonicHash(mnemonic)
@@ -50,23 +58,11 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
       mnemonic = null
       sparkWallet[hash] = wallet
 
-      const flashnetAPI = FlashnetAPI(wallet)
-      await flashnetAPI.initializeFlashnetClient()
-      flashnetClients[hash] = flashnetAPI
-
       return { isConnected: true }
     } catch (err) {
       console.log('Initialize spark wallet error function', err)
       return { isConnected: false, error: err.message }
     }
-  }
-
-  const getFlashnetClient = (hash) => {
-    const client = flashnetClients[hash]
-    if (!client) {
-      throw new Error('Flashnet client not initialized')
-    }
-    return client
   }
 
   // --- Updated handleTransfer with encryption support ---
@@ -89,8 +85,23 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
 
   // -------------------------------
+  // SPARK FUNCTIONS
   // All mnemonic instances in the coming functions should actually be a hash of the mnemonic. The only time you send the mnemonic is during initialization.
   // -------------------------------
+
+  const initializeFlashnet = async ({ mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const flashnetAPI = FlashnetAPI(wallet)
+      await flashnetAPI.initializeFlashnetClient()
+      flashnetClients[mnemonic] = flashnetAPI
+
+      return { didWork: true }
+    } catch (err) {
+      console.log('Error initializing flashnet', err)
+      return { didWork: false, err: err.message }
+    }
+  }
 
   const removeWalletEventListener = ({ mnemonic }) => {
     const wallet = getWallet(mnemonic)
@@ -316,13 +327,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const receiveSparkLightningPayment = async ({ amountSats, memo, expirySeconds, mnemonic }) => {
+  const receiveSparkLightningPayment = async ({ amountSats, memo, expirySeconds, includeSparkAddress, mnemonic }) => {
     try {
       const response = await getWallet(mnemonic).createLightningInvoice({
         amountSats,
         memo,
         expirySeconds,
-        includeSparkAddress: true,
+        includeSparkAddress,
       })
       return { didWork: true, response }
     } catch (err) {
@@ -516,107 +527,228 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  // Flashnet
-
-  const listFlashnetPools = async ({ mnemonic }) => {
+  const createSatsInvoice = async ({ mnemonic }) => {
     try {
-      const client = getFlashnetClient(mnemonic)
-      return await client.listPools()
+      const wallet = getWallet(mnemonic)
+      const invoice = await wallet.createSatsInvoice({})
+      return { didWork: true, invoice }
     } catch (err) {
-      console.log('List Flashnet pools error', err)
+      console.log('Create sats invoice error', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  const swapBitcoinToUSDB = async ({
-    poolId,
-    amountSats,
-    bitcoinPubkey,
-    usdbPubkey,
-    maxSlippageBps = 100,
+  const createTokensInvoice = async ({ mnemonic, tokenIdentifier }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const invoice = await wallet.createTokensInvoice({ tokenIdentifier })
+      return { didWork: true, invoice }
+    } catch (err) {
+      console.log('Create tokens invoice error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  // -------------------------------
+  // FLASHNET FUNCTIONS
+  // -------------------------------
+
+  const findBestPool = async ({ mnemonic, tokenAAddress, tokenBAddress, options }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.findBestPool({ tokenAAddress, tokenBAddress, options })
+    } catch (err) {
+      console.log('Find best pool error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const getPoolDetails = async ({ mnemonic, poolId }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.getPoolDetails({ poolId })
+    } catch (err) {
+      console.log('Get pool details error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const listAllPools = async ({ mnemonic, filters }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.listAllPools({ filters })
+    } catch (err) {
+      console.log('List all pools error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const minFlashnetSwapAmounts = async ({ mnemonic, assetHex }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.minFlashnetSwapAmounts({ assetHex })
+    } catch (err) {
+      console.log('Get min swap amounts error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const simulateSwap = async ({ mnemonic, poolId, assetInAddress, assetOutAddress, amountIn }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.simulateSwap({ poolId, assetInAddress, assetOutAddress, amountIn })
+    } catch (err) {
+      console.log('Simulate swap error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const executeSwap = async ({
     mnemonic,
+    poolId,
+    assetInAddress,
+    assetOutAddress,
+    amountIn,
+    minAmountOut,
+    maxSlippageBps,
+    integratorFeeRateBps,
   }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.swapBitcoinToUSDB({
+      return await client.executeSwap({
         poolId,
-        amountSats,
-        bitcoinPubkey,
-        usdbPubkey,
+        assetInAddress,
+        assetOutAddress,
+        amountIn,
+        minAmountOut,
         maxSlippageBps,
+        integratorFeeRateBps,
       })
     } catch (err) {
-      console.log('Swap Bitcoin to USDB error', err)
+      console.log('Execute swap error', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  const swapUSDBToBitcoin = async ({
-    poolId,
-    amountUSDB,
-    usdbPubkey,
-    bitcoinPubkey,
-    maxSlippageBps = 100,
-    mnemonic,
-  }) => {
+  const swapBitcoinToToken = async ({ mnemonic, tokenAddress, amountSats, poolId, maxSlippageBps }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.swapUSDBToBitcoin({
-        poolId,
-        amountUSDB,
-        usdbPubkey,
-        bitcoinPubkey,
-        maxSlippageBps,
-      })
+      return await client.swapBitcoinToToken({ tokenAddress, amountSats, poolId, maxSlippageBps })
     } catch (err) {
-      console.log('Swap USDB to Bitcoin error', err)
+      console.log('Swap Bitcoin to token error', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  const payLightningInvoiceWithUSDB = async ({
+  const swapTokenToBitcoin = async ({ mnemonic, tokenAddress, tokenAmount, poolId, maxSlippageBps }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.swapTokenToBitcoin({ tokenAddress, tokenAmount, poolId, maxSlippageBps })
+    } catch (err) {
+      console.log('Swap token to Bitcoin error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const getLightningPaymentQuote = async ({ mnemonic, invoice, tokenAddress }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.getLightningPaymentQuote({ invoice, tokenAddress })
+    } catch (err) {
+      console.log('Get Lightning payment quote error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const payLightningWithToken = async ({
+    mnemonic,
     invoice,
-    poolId,
-    usdbPubkey,
-    bitcoinPubkey,
-    amountUSDB,
-    maxSwapSlippageBps = 100,
+    tokenAddress,
+    maxSlippageBps,
     maxLightningFeeSats,
-    mnemonic,
+    rollbackOnFailure,
+    useExistingBtcBalance,
+    integratorFeeRateBps,
   }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.payLightningWithUSDB({
+      return await client.payLightningWithToken({
         invoice,
-        poolId,
-        usdbPubkey,
-        bitcoinPubkey,
-        amountUSDB,
-        maxSwapSlippageBps,
+        tokenAddress,
+        maxSlippageBps,
         maxLightningFeeSats,
+        rollbackOnFailure,
+        useExistingBtcBalance,
+        integratorFeeRateBps,
       })
     } catch (err) {
-      console.log('Pay Lightning with USDB error', err)
+      console.log('Pay Lightning with token error', err)
       return { didWork: false, error: err.message }
     }
   }
 
-  const estimateUSDBForLightning = async ({ invoice, poolId, usdbPubkey, bitcoinPubkey, mnemonic }) => {
+  const getUserSwapHistory = async ({ mnemonic }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.estimateUSDBForLightningPayment({
-        invoice,
-        poolId,
-        usdbPubkey,
-        bitcoinPubkey,
-      })
+      return await client.getUserSwapHistory()
     } catch (err) {
-      console.log('Estimate USDB for Lightning error', err)
+      console.log('Get user swap history error', err)
+      return { didWork: false, error: err.message, swaps: [] }
+    }
+  }
+
+  const requestClawback = async ({ mnemonic, sparkTransferId, poolId }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.requestClawback({ sparkTransferId, poolId })
+    } catch (err) {
+      console.log('Request clawback error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const requestBatchClawback = async ({ mnemonic, transferIds, poolId }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.requestClawback({ transferIds, poolId })
+    } catch (err) {
+      console.log('Request clawback error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const checkClawbackEligibility = async ({ mnemonic, sparkTransferId }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.checkClawbackEligibility({ sparkTransferId })
+    } catch (err) {
+      console.log('Check clawback eligibility error', err)
+      return { didWork: false, error: err.message, response: false }
+    }
+  }
+
+  const checkClawbackStatus = async ({ mnemonic, internalRequestId }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.checkClawbackStatus({ internalRequestId })
+    } catch (err) {
+      console.log('Check clawback status error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const listClawbackableTransfers = async ({ mnemonic, limit }) => {
+    try {
+      const client = getFlashnetClient(mnemonic)
+      return await client.listClawbackableTransfers({ limit })
+    } catch (err) {
+      console.log('List clawbackable transfers error', err)
       return { didWork: false, error: err.message }
     }
   }
 
   return {
+    // Spark functions
     initializeSparkWallet,
     removeWalletEventListener,
     addWalletEventListener,
@@ -644,11 +776,27 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     findTransactionTxFromTxHistory,
     getSingleTxDetails,
     setPrivacyEnabled,
-    listFlashnetPools,
-    swapBitcoinToUSDB,
-    swapUSDBToBitcoin,
-    payLightningInvoiceWithUSDB,
-    estimateUSDBForLightning,
+    createSatsInvoice,
+    createTokensInvoice,
+
+    // Flashnet functions
+    initializeFlashnet,
+    findBestPool,
+    getPoolDetails,
+    listAllPools,
+    minFlashnetSwapAmounts,
+    simulateSwap,
+    executeSwap,
+    swapBitcoinToToken,
+    swapTokenToBitcoin,
+    getLightningPaymentQuote,
+    payLightningWithToken,
+    getUserSwapHistory,
+    requestClawback,
+    requestBatchClawback,
+    checkClawbackEligibility,
+    checkClawbackStatus,
+    listClawbackableTransfers,
   }
 }
 
