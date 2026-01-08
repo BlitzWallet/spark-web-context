@@ -11,6 +11,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   const sparkWallet = {}
   const flashnetClients = {}
 
+  const optimizationState = {
+    isLeafOptimizationRunning: false,
+    isTokenOptimizationRunning: false,
+    controller: null,
+    timeout: null,
+  }
+
   const getMnemonicHash = (mnemonic) => {
     const hash = sha256Hash(mnemonic)
     return hash
@@ -747,6 +754,99 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  // Wallet Opimization methods
+  const abortOptimization = async () => {
+    try {
+      console.log('Aborting webview optimization...')
+
+      if (optimizationState.controller) {
+        optimizationState.controller.abort()
+        optimizationState.controller = null
+      }
+
+      optimizationState.isLeafOptimizationRunning = false
+      optimizationState.isTokenOptimizationRunning = false
+
+      return { didWork: true, cancelled: true }
+    } catch (err) {
+      console.log('Abort optimization error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const isOptimizationRunning = () => {
+    return optimizationState.isLeafOptimizationRunning || optimizationState.isTokenOptimizationRunning
+  }
+
+  const checkIfOptimizationNeeded = async ({ mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+
+      const [isLeafOptInProgress, isTokenOptInProgress] = await Promise.all([
+        wallet.isOptimizationInProgress(),
+        wallet.isTokenOptimizationInProgress(),
+      ])
+      // Return true if optimization is NOT in progress (meaning it's available to run)
+      return { didWork: true, needed: !(isLeafOptInProgress || isTokenOptInProgress) }
+    } catch (err) {
+      console.log('Get spark balance error', err)
+      return { didWork: false, needed: false }
+    }
+  }
+
+  const runLeafOptimization = async ({ mnemonic }) => {
+    try {
+      optimizationState.isLeafOptimizationRunning = true
+
+      console.log('Starting leaf optimization...')
+
+      const wallet = await getWallet(mnemonic)
+      if (!wallet) {
+        throw new Error('Wallet not initialized')
+      }
+      for await (const progress of wallet.optimizeLeaves()) {
+        // Store controller for abortion
+        optimizationState.controller = progress.controller
+        console.log(`Optimization progress: ${progress.step}/${progress.total}`)
+        // Check if we should abort
+        if (!optimizationState.isLeafOptimizationRunning) {
+          console.log('Optimization aborted by external signal')
+          progress.controller.abort()
+          break
+        }
+      }
+
+      console.log('Leaf optimization complete')
+      return { didWork: true }
+    } catch (error) {
+      console.error('Error during leaf optimization:', error)
+      return { didWork: false, error: error.message }
+    } finally {
+      optimizationState.isLeafOptimizationRunning = false
+      optimizationState.controller = null
+    }
+  }
+
+  const runTokenOptimization = async ({ mnemonic }) => {
+    try {
+      optimizationState.isTokenOptimizationRunning = true
+
+      const wallet = await getWallet(mnemonic)
+      if (!wallet) {
+        throw new Error('Wallet not initialized')
+      }
+      await wallet.optimizeTokenOutputs()
+
+      console.log('Token optimization complete')
+      return { didWork: true }
+    } catch (error) {
+      console.error('Error during token optimization:', error)
+      return { didWork: false, error: error.message }
+    } finally {
+      optimizationState.isTokenOptimizationRunning = false
+    }
+  }
+
   return {
     // Spark functions
     initializeSparkWallet,
@@ -797,6 +897,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     checkClawbackEligibility,
     checkClawbackStatus,
     listClawbackableTransfers,
+
+    // Optimization functions
+    abortOptimization,
+    isOptimizationRunning,
+    checkIfOptimizationNeeded,
+    runLeafOptimization,
+    runTokenOptimization,
   }
 }
 
