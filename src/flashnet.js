@@ -1,5 +1,6 @@
-import { FlashnetClient } from '@flashnet/sdk'
+import { FlashnetClient, getErrorMetadata, isFlashnetError } from '@flashnet/sdk'
 const BLITZ_PUB_KEY = '031fa6899d8b8267af07cbb5ebbe2834f7e1c8fe9a282232570772ea5d34151ec6'
+const FLASHNET_ERROR_CODE_REGEX = /\bFSAG-\d{4}(?:T\d+)?\b/
 
 export const FlashnetAPI = (wallet) => {
   let flashnetClient = null
@@ -195,7 +196,7 @@ export const FlashnetAPI = (wallet) => {
       }
     } catch (err) {
       console.error('Execute swap error:', err)
-      return { didWork: false, error: err.message }
+      return { didWork: false, error: err.message, formatted: formatError(err) }
     }
   }
 
@@ -475,6 +476,59 @@ export const FlashnetAPI = (wallet) => {
     } catch (err) {
       console.error('List clawbackable transfers error:', err)
       return { didWork: false, error: err.message }
+    }
+  }
+
+  /**
+   * Format error for logging
+   */
+  const formatError = (error, operation) => {
+    if (isFlashnetError(error)) {
+      return {
+        operation,
+        errorCode: error.errorCode,
+        category: error.category,
+        message: error.userMessage,
+        actionHint: error.actionHint,
+        requestId: error.requestId,
+        isRetryable: error.isRetryable,
+        recovery: error.recovery,
+        transferIds: error.transferIds,
+        clawbackAttempted: error.wasClawbackAttempted?.() || false,
+        fundsRecovered: error.wereAllTransfersRecovered?.() || false,
+      }
+    }
+
+    let parsedError
+    if (typeof error === 'object') {
+      parsedError = error.message
+    } else {
+      parsedError = error
+    }
+
+    const match = parsedError.match(FLASHNET_ERROR_CODE_REGEX)
+    const errorCode = match?.[0] ?? null
+
+    if (errorCode) {
+      const metadata = getErrorMetadata(errorCode)
+
+      return {
+        operation,
+        errorCode: errorCode,
+        category: metadata.category,
+        message: metadata.userMessage,
+        actionHint: metadata.actionHint,
+        isRetryable: metadata.isRetryable,
+        recovery: metadata.recovery,
+        transferIds: metadata.transferIds,
+        clawbackAttempted: metadata.wasClawbackAttempted?.() || false,
+        fundsRecovered: metadata.wereAllTransfersRecovered?.() || false,
+      }
+    }
+
+    return {
+      operation,
+      message: error?.message || String(error),
     }
   }
 
