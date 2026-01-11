@@ -6,15 +6,9 @@ export const FlashnetAPI = (wallet) => {
   let flashnetClient = null
 
   const initializeFlashnetClient = async () => {
-    try {
-      flashnetClient = new FlashnetClient(wallet, { autoAuthenticate: true })
-      await flashnetClient.initialize()
-      console.log('Flashnet client initialized in webview')
-      return { didWork: true }
-    } catch (err) {
-      console.error('Flashnet client initialization error:', err)
-      return { didWork: false, error: err.message }
-    }
+    flashnetClient = new FlashnetClient(wallet, { autoAuthenticate: true })
+    await flashnetClient.initialize()
+    console.log('Flashnet client initialized in webview')
   }
 
   const getClient = () => {
