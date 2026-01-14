@@ -636,10 +636,17 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const simulateSwap = async ({ mnemonic, poolId, assetInAddress, assetOutAddress, amountIn }) => {
+  const simulateSwap = async ({
+    mnemonic,
+    poolId,
+    assetInAddress,
+    assetOutAddress,
+    amountIn,
+    integratorFeeRateBps,
+  }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.simulateSwap({ poolId, assetInAddress, assetOutAddress, amountIn })
+      return await client.simulateSwap({ poolId, assetInAddress, assetOutAddress, amountIn, integratorFeeRateBps })
     } catch (err) {
       console.log('Simulate swap error', err)
       return { didWork: false, error: err.message }

@@ -115,7 +115,7 @@ export const FlashnetAPI = (wallet) => {
   }
 
   // Swap Simulation & Execution
-  const simulateSwap = async ({ poolId, assetInAddress, assetOutAddress, amountIn }) => {
+  const simulateSwap = async ({ poolId, assetInAddress, assetOutAddress, amountIn, integratorFeeRateBps = 100 }) => {
     try {
       const client = getClient()
       const simulation = await client.simulateSwap({
@@ -123,6 +123,7 @@ export const FlashnetAPI = (wallet) => {
         assetInAddress,
         assetOutAddress,
         amountIn: amountIn.toString(),
+        integratorBps: integratorFeeRateBps,
       })
 
       return {
@@ -160,6 +161,7 @@ export const FlashnetAPI = (wallet) => {
           assetInAddress,
           assetOutAddress,
           amountIn: amountIn.toString(),
+          integratorBps: integratorFeeRateBps,
         })
         const output = BigInt(simulation.amountOut)
         const factor = 10_000n - BigInt(maxSlippageBps)
