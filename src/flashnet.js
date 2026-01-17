@@ -336,10 +336,10 @@ export const FlashnetAPI = (wallet) => {
   }
 
   // Swap History
-  const getUserSwapHistory = async () => {
+  const getUserSwapHistory = async (limit) => {
     try {
       const client = getClient()
-      const result = await client.getUserSwaps()
+      const result = await client.getUserSwaps(undefined, { limit })
 
       return {
         didWork: true,
