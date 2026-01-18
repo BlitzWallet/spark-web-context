@@ -15,7 +15,7 @@
   "dependencies": {
     "@buildonspark/spark-sdk": "^0.5.3",
     "@ecies/ciphers": "^0.2.4",
-    "@flashnet/sdk": "^0.4.2",
+    "@flashnet/sdk": "^0.4.3",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^3.0.0"
   },
