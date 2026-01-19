@@ -255,10 +255,13 @@ export const FlashnetAPI = (wallet) => {
   }
 
   // Lightning Payments
-  const getLightningPaymentQuote = async ({ invoice, tokenAddress }) => {
+  const getLightningPaymentQuote = async ({ invoice, tokenAddress, integratorFeeRateBps, maxSlippageBps }) => {
     try {
       const client = getClient()
-      const quote = await client.getPayLightningWithTokenQuote(invoice, tokenAddress)
+      const quote = await client.getPayLightningWithTokenQuote(invoice, tokenAddress, {
+        integratorFeeRateBps,
+        maxSlippageBps,
+      })
 
       return {
         didWork: true,

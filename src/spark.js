@@ -700,10 +700,16 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const getLightningPaymentQuote = async ({ mnemonic, invoice, tokenAddress }) => {
+  const getLightningPaymentQuote = async ({
+    mnemonic,
+    invoice,
+    tokenAddress,
+    integratorFeeRateBps,
+    maxSlippageBps,
+  }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.getLightningPaymentQuote({ invoice, tokenAddress })
+      return await client.getLightningPaymentQuote({ invoice, tokenAddress, integratorFeeRateBps, maxSlippageBps })
     } catch (err) {
       console.log('Get Lightning payment quote error', err)
       return { didWork: false, error: err.message }
