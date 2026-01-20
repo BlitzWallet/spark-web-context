@@ -743,10 +743,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const getUserSwapHistory = async ({ mnemonic, limit }) => {
+  const getUserSwapHistory = async ({ mnemonic, limit, offset }) => {
     try {
       const client = getFlashnetClient(mnemonic)
-      return await client.getUserSwapHistory(limit)
+      return await client.getUserSwapHistory(limit, offset)
     } catch (err) {
       console.log('Get user swap history error', err)
       return { didWork: false, error: err.message, swaps: [] }
