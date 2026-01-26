@@ -58,16 +58,26 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
       }
 
       initializingWallets[hash] = (async () => {
-        const wallet = await initializeWallet(mnemonic)
-        sparkWallet[hash] = wallet
-        delete initializingWallets[hash] // cleanup after done
+        try {
+          const wallet = await initializeWallet(mnemonic)
+          sparkWallet[hash] = wallet
+          return wallet
+        } catch (err) {
+          delete initializingWallets[hash]
+          delete sparkWallet[hash]
+          throw err
+        }
       })()
 
       await initializingWallets[hash]
+      delete initializingWallets[hash]
       mnemonic = null
       return { isConnected: true }
     } catch (err) {
       console.log('Initialize spark wallet error function', err)
+      const hash = getMnemonicHash(mnemonic)
+      delete initializingWallets[hash]
+      delete sparkWallet[hash]
       return { isConnected: false, error: err.message }
     }
   }
