@@ -407,6 +407,17 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const getUtxosForDepositAddress = async ({ depositAddress, mnemonic, limit, offset, excludeClaimed }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const utxos = await wallet.getUtxosForDepositAddress(depositAddress, limit, offset, excludeClaimed)
+      return { didWork: true, utxos }
+    } catch (err) {
+      console.log('Get spark bitcoin payment request error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   const getSparkBitcoinPaymentFeeEstimate = async ({ withdrawalAddress, amountSats, mnemonic }) => {
     try {
       const wallet = getWallet(mnemonic)
@@ -915,6 +926,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSparkBalance,
     getSparkStaticBitcoinL1Address,
     queryAllStaticDepositAddresses,
+    getUtxosForDepositAddress,
     getSparkStaticBitcoinL1AddressQuote,
     refundSparkStaticBitcoinL1AddressQuote,
     claimnSparkStaticDepositAddress,
