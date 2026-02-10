@@ -191,8 +191,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
             ...tokensData.tokenMetadata,
             maxSupply: tokensData.tokenMetadata.maxSupply.toString(),
           },
-          balance: tokensData.balance.toString(),
+          balance: tokensData.availableToSendBalance.toString(),
         }
+        delete currentTokensObj[tokensIdentifier].availableToSendBalance
+        delete currentTokensObj[tokensIdentifier].ownedBalance
       }
 
       return {
