@@ -389,6 +389,58 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const claimSparkHodlLightningPayment = async ({ preimage, mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const response = await wallet.claimHTLC(preimage)
+      delete response.leaves
+      return { didWork: true, response }
+    } catch (err) {
+      console.log('Receive spark lightning payment error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+  const querySparkHodlLightningPayments = async ({ paymentHashes, mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+
+      const response = await await wallet.queryHTLC({
+        paymentHashes,
+        limit: 50,
+        offset: 0,
+      })
+
+      const paidPreimages = response.preimageRequests.map((request) => ({
+        status: request.status,
+        createdTime: request.createdTime,
+        paymentHash: Buffer.from(request.paymentHash).toString('hex'),
+        transferId: request.transfer.id,
+        satValue: request.transfer.totalValue,
+      }))
+      return { didWork: true, paidPreimages }
+    } catch (err) {
+      console.log('Receive spark lightning payment error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const receiveSparkHodlLightningPayment = async ({ amountSats, paymentHash, memo, expirySeconds, mnemonic }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const response = await wallet.createLightningHodlInvoice({
+        amountSats,
+        paymentHash,
+        memo,
+        expirySeconds,
+        includeSparkAddress: false,
+      })
+      return { didWork: true, response }
+    } catch (err) {
+      console.log('Receive spark lightning payment error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   const getSparkLightningPaymentStatus = async ({ lightningInvoiceId, mnemonic }) => {
     try {
       const wallet = getWallet(mnemonic)
@@ -951,6 +1003,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     setPrivacyEnabled,
     createSatsInvoice,
     createTokensInvoice,
+    claimSparkHodlLightningPayment,
+    receiveSparkHodlLightningPayment,
+    querySparkHodlLightningPayments,
 
     // Flashnet functions
     initializeFlashnet,
