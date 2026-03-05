@@ -13,9 +13,9 @@
   "repository": "github:blitzwallet/spark-web-context",
   "license": "MIT",
   "dependencies": {
-    "@buildonspark/spark-sdk": "^0.6.5",
+    "@buildonspark/spark-sdk": "^0.6.7",
     "@ecies/ciphers": "^0.2.4",
-    "@flashnet/sdk": "^0.5.6",
+    "@flashnet/sdk": "^0.5.7",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^3.0.0"
   },
