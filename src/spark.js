@@ -373,7 +373,14 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const receiveSparkLightningPayment = async ({ amountSats, memo, expirySeconds, includeSparkAddress, mnemonic }) => {
+  const receiveSparkLightningPayment = async ({
+    amountSats,
+    memo,
+    expirySeconds,
+    includeSparkAddress,
+    mnemonic,
+    receiverIdentityPubkey,
+  }) => {
     try {
       const wallet = getWallet(mnemonic)
       const response = await wallet.createLightningInvoice({
@@ -381,6 +388,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         memo,
         expirySeconds,
         includeSparkAddress,
+        receiverIdentityPubkey,
       })
       return { didWork: true, response }
     } catch (err) {
@@ -645,10 +653,14 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const createSatsInvoice = async ({ mnemonic }) => {
+  const createSatsInvoice = async ({ mnemonic, amountSats, memo, receiverIdentityPubkey }) => {
     try {
       const wallet = getWallet(mnemonic)
-      const invoice = await wallet.createSatsInvoice({})
+      const invoice = await wallet.createSatsInvoice({
+        amount: amountSats,
+        memo,
+        receiverIdentityPubkey,
+      })
       return { didWork: true, invoice }
     } catch (err) {
       console.log('Create sats invoice error', err)
