@@ -359,11 +359,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }) => {
     try {
       const wallet = getWallet(mnemonic)
+      const paymentFee = (feeQuote.l1BroadcastFeeFast?.originalValue || 0) + (feeQuote.userFeeFast?.originalValue || 0)
       const response = await wallet.withdraw({
         onchainAddress: onchainAddress,
-        exitSpeed,
         amountSats,
-        feeQuote,
+        exitSpeed,
+        feeQuoteId: feeQuote.id,
+        feeAmountSats: paymentFee,
         deductFeeFromWithdrawalAmount,
       })
       return { didWork: true, response }
