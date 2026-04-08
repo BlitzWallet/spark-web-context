@@ -670,6 +670,48 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const fufillSparkInvoices = async ({ mnemonic, invoices = [] }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const deserializedInvoices = invoices.map(({ invoice, amount }) => ({
+        invoice,
+        amount: BigInt(amount),
+      }))
+      const result = await wallet.fulfillSparkInvoice(deserializedInvoices)
+
+      const cleanedResult = {
+        ...result,
+        satsTransactionSuccess: result.satsTransactionSuccess?.map((tx) => {
+          const { leaves, secretCipher, signature, intermediateRefundTx, receivers, ...cleanedTransferResponse } =
+            tx.transferResponse
+
+          return { ...tx, transferResponse: cleanedTransferResponse }
+        }),
+      }
+
+      return { didWork: true, ...cleanedResult }
+    } catch (err) {
+      console.log('Create sats invoice error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const batchTransferTokens = async ({ mnemonic, invoices = [] }) => {
+    try {
+      const wallet = getWallet(mnemonic)
+      const deserializedInvoices = invoices.map(({ tokenIdentifier, receiverSparkAddress, tokenAmount }) => ({
+        tokenIdentifier,
+        receiverSparkAddress,
+        tokenAmount: BigInt(tokenAmount),
+      }))
+      const invoice = await wallet.batchTransferTokens(deserializedInvoices)
+      return { didWork: true, invoice }
+    } catch (err) {
+      console.log('Create sats invoice error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   const createTokensInvoice = async ({ mnemonic, tokenIdentifier }) => {
     try {
       const wallet = getWallet(mnemonic)
@@ -1016,6 +1058,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSingleTxDetails,
     setPrivacyEnabled,
     createSatsInvoice,
+    fufillSparkInvoices,
+    batchTransferTokens,
     createTokensInvoice,
     claimSparkHodlLightningPayment,
     receiveSparkHodlLightningPayment,
