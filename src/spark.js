@@ -25,14 +25,17 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
 
   // Centralizes wallet lookup and error handling, reducing code duplication
-  const getWallet = (hash) => {
-    const wallet = sparkWallet[hash]
+  const getWallet = async (hash) => {
+    if (sparkWallet[hash]) return sparkWallet[hash]
 
-    if (!wallet) {
-      throw new Error('sparkWallet not initialized')
+    if (initializingWallets[hash]) {
+      console.log('getWallet: wallet initializing, waiting...')
+      await initializingWallets[hash]
+      const wallet = sparkWallet[hash]
+      if (wallet) return wallet
     }
 
-    return wallet
+    throw new Error('sparkWallet not initialized')
   }
 
   const getFlashnetClient = (hash) => {
@@ -123,7 +126,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const initializeFlashnet = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const flashnetAPI = FlashnetAPI(wallet)
       await flashnetAPI.initializeFlashnetClient()
       flashnetClients[mnemonic] = flashnetAPI
@@ -135,16 +138,16 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const removeWalletEventListener = ({ mnemonic }) => {
-    const wallet = getWallet(mnemonic)
+  const removeWalletEventListener = async ({ mnemonic }) => {
+    const wallet = await getWallet(mnemonic)
 
     if (wallet?.listenerCount('transfer:claimed')) {
       wallet.removeAllListeners('transfer:claimed')
     }
   }
 
-  const addWalletEventListener = ({ mnemonic }) => {
-    const wallet = getWallet(mnemonic)
+  const addWalletEventListener = async ({ mnemonic }) => {
+    const wallet = await getWallet(mnemonic)
 
     if (wallet?.listenerCount('transfer:claimed')) return
 
@@ -153,7 +156,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkIdentityPubKey = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       return await wallet.getIdentityPublicKey()
     } catch (err) {
       console.log('Get spark identity public key error', err)
@@ -162,7 +165,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const setPrivacyEnabled = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
 
       const walletSetings = await wallet.getWalletSettings()
 
@@ -179,7 +182,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkBalance = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
 
       const balance = await wallet.getBalance()
 
@@ -210,7 +213,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkStaticBitcoinL1Address = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       return await wallet.getStaticDepositAddress()
     } catch (err) {
       console.log('Get reusable Bitcoin mainchain address error', err)
@@ -219,7 +222,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const queryAllStaticDepositAddresses = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       return await wallet.queryStaticDepositAddresses()
     } catch (err) {
       console.log('Query reusable Bitcoin mainchain addresses error', err)
@@ -228,7 +231,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkStaticBitcoinL1AddressQuote = async ({ txid, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const quote = await wallet.getClaimStaticDepositQuote(txid)
       return { didWork: true, quote }
     } catch (err) {
@@ -244,7 +247,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     mnemonic,
   }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       return await wallet.refundStaticDeposit({
         depositTransactionId,
         destinationAddress,
@@ -263,7 +266,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     mnemonic,
   }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.claimStaticDeposit({
         creditAmountSats,
         sspSignature,
@@ -278,7 +281,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkAddress = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getSparkAddress()
       return { didWork: true, response }
     } catch (err) {
@@ -289,7 +292,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const sendSparkPayment = async ({ receiverSparkAddress, amountSats, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.transfer({
         receiverSparkAddress: receiverSparkAddress.toLowerCase(),
         amountSats,
@@ -304,7 +307,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const sendSparkTokens = async ({ tokenIdentifier, tokenAmount, receiverSparkAddress, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.transferTokens({
         tokenIdentifier,
         tokenAmount: BigInt(tokenAmount),
@@ -320,7 +323,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkLightningPaymentFeeEstimate = async ({ invoice, amountSat, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getLightningSendFeeEstimate({
         encodedInvoice: invoice.toLowerCase(),
         amountSats: amountSat,
@@ -334,7 +337,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const sendSparkLightningPayment = async ({ invoice, amountSat, mnemonic, maxFeeSats }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const paymentResponse = await wallet.payLightningInvoice({
         invoice: invoice.toLowerCase(),
         maxFeeSats: maxFeeSats,
@@ -358,7 +361,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     mnemonic,
   }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const paymentFee = (feeQuote.l1BroadcastFeeFast?.originalValue || 0) + (feeQuote.userFeeFast?.originalValue || 0)
       const response = await wallet.withdraw({
         onchainAddress: onchainAddress,
@@ -384,7 +387,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     receiverIdentityPubkey,
   }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.createLightningInvoice({
         amountSats,
         memo,
@@ -401,7 +404,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const claimSparkHodlLightningPayment = async ({ preimage, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.claimHTLC(preimage)
       delete response.leaves
       return { didWork: true, response }
@@ -412,7 +415,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
   const querySparkHodlLightningPayments = async ({ paymentHashes, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
 
       const response = await await wallet.queryHTLC({
         paymentHashes,
@@ -436,7 +439,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const receiveSparkHodlLightningPayment = async ({ amountSats, paymentHash, memo, expirySeconds, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.createLightningHodlInvoice({
         amountSats,
         paymentHash,
@@ -453,7 +456,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkLightningPaymentStatus = async ({ lightningInvoiceId, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getLightningReceiveRequest(lightningInvoiceId)
       return response
     } catch (err) {
@@ -463,7 +466,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkBitcoinPaymentRequest = async ({ paymentId, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getCoopExitRequest(paymentId)
       return response
     } catch (err) {
@@ -473,7 +476,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getUtxosForDepositAddress = async ({ depositAddress, mnemonic, limit, offset, excludeClaimed }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const utxos = await wallet.getUtxosForDepositAddress(depositAddress, limit, offset, excludeClaimed)
       return { didWork: true, utxos }
     } catch (err) {
@@ -484,7 +487,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkBitcoinPaymentFeeEstimate = async ({ withdrawalAddress, amountSats, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getWithdrawalFeeQuote({
         amountSats,
         withdrawalAddress: withdrawalAddress,
@@ -498,7 +501,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkPaymentFeeEstimate = async ({ amountSats, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getSwapFeeEstimate(amountSats)
       return response
     } catch (err) {
@@ -509,7 +512,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkLightningSendRequest = async ({ id, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getLightningSendRequest(id)
       return response
     } catch (err) {
@@ -519,7 +522,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSparkTransactions = async ({ transferCount, offsetIndex, mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getTransfers(transferCount, offsetIndex)
       const transfers = response.transfers.map((tx) => {
         delete tx.leaves
@@ -542,7 +545,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     lastSavedTransactionId,
   }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.queryTokenTransactions({
         ownerPublicKeys,
         issuerPublicKeys,
@@ -596,7 +599,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const getSingleTxDetails = async ({ mnemonic, id }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const response = await wallet.getTransfer(id)
       if (!response) throw new Error('No tx found')
       delete response.leaves
@@ -620,7 +623,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         }
       }
 
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       let offset = previousOffset
       let foundTransfers = []
       let bitcoinTransfer = undefined
@@ -657,7 +660,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const createSatsInvoice = async ({ mnemonic, amountSats, memo, receiverIdentityPubkey }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const invoice = await wallet.createSatsInvoice({
         amount: amountSats,
         memo,
@@ -672,7 +675,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const fufillSparkInvoices = async ({ mnemonic, invoices = [] }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const deserializedInvoices = invoices.map(({ invoice, amount }) => ({
         invoice,
         amount: BigInt(amount),
@@ -698,7 +701,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const batchTransferTokens = async ({ mnemonic, invoices = [] }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const deserializedInvoices = invoices.map(({ tokenIdentifier, receiverSparkAddress, tokenAmount }) => ({
         tokenIdentifier,
         receiverSparkAddress,
@@ -714,7 +717,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const createTokensInvoice = async ({ mnemonic, tokenIdentifier }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       const invoice = await wallet.createTokensInvoice({ tokenIdentifier })
       return { didWork: true, invoice }
     } catch (err) {
@@ -960,7 +963,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const checkIfOptimizationNeeded = async ({ mnemonic }) => {
     try {
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
 
       const [isLeafOptInProgress, isTokenOptInProgress] = await Promise.all([
         wallet.isOptimizationInProgress(),
@@ -980,7 +983,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
       console.log('Starting leaf optimization...')
 
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       if (!wallet) {
         throw new Error('Wallet not initialized')
       }
@@ -1011,7 +1014,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     try {
       optimizationState.isTokenOptimizationRunning = true
 
-      const wallet = getWallet(mnemonic)
+      const wallet = await getWallet(mnemonic)
       if (!wallet) {
         throw new Error('Wallet not initialized')
       }
