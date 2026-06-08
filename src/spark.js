@@ -271,6 +271,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         creditAmountSats,
         sspSignature,
         transactionId,
+        outputIndex,
       })
       return { didWork: true, response }
     } catch (err) {
