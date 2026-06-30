@@ -119,6 +119,79 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  // --- Push the authoritative sats balance on every balance change ---
+  // balance:update fires for deposits, transfers, swaps and claims. Payload is
+  // { available, owned, incoming } as bigints; we stringify for the bridge.
+  const handleBalanceUpdate = async (balance) => {
+    const message = {
+      balanceUpdate: true,
+      result: JSON.stringify({
+        available: balance.available.toString(),
+        owned: balance.owned.toString(),
+        incoming: balance.incoming.toString(),
+      }),
+      isResponse: true,
+    }
+
+    try {
+      const encrypted = await encryptMessage(sharedKey, JSON.stringify(message))
+      ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
+    } catch (err) {
+      console.log('Encryption error during handleBalanceUpdate:', err)
+    }
+  }
+
+  // --- Push updated token balances when a token tx finalizes ---
+  // token-balance:update payload is { finalizedTokenTransactions, tokenBalances }.
+  // We serialize tokenBalances into the same shape getSparkBalance returns.
+  const handleTokenBalanceUpdate = async (event) => {
+    const currentTokensObj = {}
+    for (const [tokensIdentifier, tokensData] of event.tokenBalances) {
+      currentTokensObj[tokensIdentifier] = {
+        ...tokensData,
+        tokenMetadata: {
+          ...tokensData.tokenMetadata,
+          maxSupply: tokensData.tokenMetadata.maxSupply.toString(),
+        },
+        balance: tokensData.availableToSendBalance.toString(),
+      }
+      delete currentTokensObj[tokensIdentifier].availableToSendBalance
+      delete currentTokensObj[tokensIdentifier].ownedBalance
+    }
+
+    const message = {
+      tokenBalanceUpdate: true,
+      result: JSON.stringify({ tokensObject: currentTokensObj }),
+      isResponse: true,
+    }
+
+    try {
+      const encrypted = await encryptMessage(sharedKey, JSON.stringify(message))
+      ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
+    } catch (err) {
+      console.log('Encryption error during handleTokenBalanceUpdate:', err)
+    }
+  }
+
+  // --- Push stream lifecycle so the app can detect a stale bridge ---
+  const handleStreamStatus = async (status) => {
+    const message = {
+      streamStatus: status,
+      isResponse: true,
+    }
+
+    try {
+      const encrypted = await encryptMessage(sharedKey, JSON.stringify(message))
+      ReactNativeWebView.postMessage(JSON.stringify({ encrypted }))
+    } catch (err) {
+      console.log('Encryption error during handleStreamStatus:', err)
+    }
+  }
+
+  const handleStreamConnected = () => handleStreamStatus('connected')
+  const handleStreamDisconnected = () => handleStreamStatus('disconnected')
+  const handleStreamReconnecting = () => handleStreamStatus('reconnecting')
+
   // -------------------------------
   // SPARK FUNCTIONS
   // All mnemonic instances in the coming functions should actually be a hash of the mnemonic. The only time you send the mnemonic is during initialization.
@@ -140,18 +213,52 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
   const removeWalletEventListener = async ({ mnemonic }) => {
     const wallet = await getWallet(mnemonic)
+    if (!wallet) return
 
-    if (wallet?.listenerCount('transfer:claimed')) {
+    if (wallet.listenerCount('transfer:claimed')) {
       wallet.removeAllListeners('transfer:claimed')
+    }
+    if (wallet.listenerCount('balance:update')) {
+      wallet.removeAllListeners('balance:update')
+    }
+    if (wallet.listenerCount('token-balance:update')) {
+      wallet.removeAllListeners('token-balance:update')
+    }
+    if (wallet.listenerCount('stream:connected')) {
+      wallet.removeAllListeners('stream:connected')
+    }
+    if (wallet.listenerCount('stream:disconnected')) {
+      wallet.removeAllListeners('stream:disconnected')
+    }
+    if (wallet.listenerCount('stream:reconnecting')) {
+      wallet.removeAllListeners('stream:reconnecting')
     }
   }
 
   const addWalletEventListener = async ({ mnemonic }) => {
     const wallet = await getWallet(mnemonic)
+    if (!wallet) return
 
-    if (wallet?.listenerCount('transfer:claimed')) return
-
-    wallet.on('transfer:claimed', handleTransfer)
+    // Each binding is guarded independently so a partial prior state can't skip
+    // the newer listeners.
+    if (!wallet.listenerCount('transfer:claimed')) {
+      wallet.on('transfer:claimed', handleTransfer)
+    }
+    if (!wallet.listenerCount('balance:update')) {
+      wallet.on('balance:update', handleBalanceUpdate)
+    }
+    if (!wallet.listenerCount('token-balance:update')) {
+      wallet.on('token-balance:update', handleTokenBalanceUpdate)
+    }
+    if (!wallet.listenerCount('stream:connected')) {
+      wallet.on('stream:connected', handleStreamConnected)
+    }
+    if (!wallet.listenerCount('stream:disconnected')) {
+      wallet.on('stream:disconnected', handleStreamDisconnected)
+    }
+    if (!wallet.listenerCount('stream:reconnecting')) {
+      wallet.on('stream:reconnecting', handleStreamReconnecting)
+    }
   }
 
   const getSparkIdentityPubKey = async ({ mnemonic }) => {
