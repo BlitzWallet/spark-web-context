@@ -101,9 +101,12 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
 
   // --- Updated handleTransfer with encryption support ---
-  const handleTransfer = async (transferId, balance) => {
+  // walletId (mnemonic hash) tags which wallet the event belongs to so the app
+  // can route it — derived wallets (gift/pool/savings) share this bridge.
+  const handleTransfer = async (transferId, balance, walletId) => {
     const message = {
       incomingPayment: true,
+      walletId,
       result: JSON.stringify({
         transferId,
         balance: balance.toString(),
@@ -122,9 +125,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   // --- Push the authoritative sats balance on every balance change ---
   // balance:update fires for deposits, transfers, swaps and claims. Payload is
   // { available, owned, incoming } as bigints; we stringify for the bridge.
-  const handleBalanceUpdate = async (balance) => {
+  const handleBalanceUpdate = async (balance, walletId) => {
     const message = {
       balanceUpdate: true,
+      walletId,
       result: JSON.stringify({
         available: balance.available.toString(),
         owned: balance.owned.toString(),
@@ -144,7 +148,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   // --- Push updated token balances when a token tx finalizes ---
   // token-balance:update payload is { finalizedTokenTransactions, tokenBalances }.
   // We serialize tokenBalances into the same shape getSparkBalance returns.
-  const handleTokenBalanceUpdate = async (event) => {
+  const handleTokenBalanceUpdate = async (event, walletId) => {
     const currentTokensObj = {}
     for (const [tokensIdentifier, tokensData] of event.tokenBalances) {
       currentTokensObj[tokensIdentifier] = {
@@ -161,6 +165,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
     const message = {
       tokenBalanceUpdate: true,
+      walletId,
       result: JSON.stringify({ tokensObject: currentTokensObj }),
       isResponse: true,
     }
@@ -239,16 +244,20 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     const wallet = await getWallet(mnemonic)
     if (!wallet) return
 
+    // mnemonic here is already the wallet hash — tag every push event with it so
+    // the app can tell which wallet (main vs derived gift/pool/savings) emitted.
+    const walletId = mnemonic
+
     // Each binding is guarded independently so a partial prior state can't skip
     // the newer listeners.
     if (!wallet.listenerCount('transfer:claimed')) {
-      wallet.on('transfer:claimed', handleTransfer)
+      wallet.on('transfer:claimed', (transferId, balance) => handleTransfer(transferId, balance, walletId))
     }
     if (!wallet.listenerCount('balance:update')) {
-      wallet.on('balance:update', handleBalanceUpdate)
+      wallet.on('balance:update', (balance) => handleBalanceUpdate(balance, walletId))
     }
     if (!wallet.listenerCount('token-balance:update')) {
-      wallet.on('token-balance:update', handleTokenBalanceUpdate)
+      wallet.on('token-balance:update', (event) => handleTokenBalanceUpdate(event, walletId))
     }
     if (!wallet.listenerCount('stream:connected')) {
       wallet.on('stream:connected', handleStreamConnected)
@@ -258,6 +267,26 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
     if (!wallet.listenerCount('stream:reconnecting')) {
       wallet.on('stream:reconnecting', handleStreamReconnecting)
+    }
+  }
+
+  // Tears down a wallet after a short-lived flow (gift/pool/savings): removes its
+  // event listeners, closes SDK connections/streams, and drops the reference so
+  // no stale session or foreign push events linger. mnemonic here is the hash.
+  const disposeSparkWallet = async ({ mnemonic }) => {
+    try {
+      const wallet = sparkWallet[mnemonic]
+      if (!wallet) return { didWork: true }
+
+      await removeWalletEventListener({ mnemonic })
+      await wallet.cleanupConnections()
+
+      delete sparkWallet[mnemonic]
+      delete flashnetClients[mnemonic]
+      return { didWork: true }
+    } catch (err) {
+      console.log('Dispose spark wallet error', err)
+      return { didWork: false, error: err.message }
     }
   }
 
@@ -1143,6 +1172,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     initializeSparkWallet,
     removeWalletEventListener,
     addWalletEventListener,
+    disposeSparkWallet,
     getSparkIdentityPubKey,
     getSparkBalance,
     getSparkStaticBitcoinL1Address,
