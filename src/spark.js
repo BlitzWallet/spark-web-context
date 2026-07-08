@@ -1,4 +1,4 @@
-import { SparkWallet } from '@buildonspark/spark-sdk'
+import { Network, SparkWallet, buildUnilateralExitChain } from '@buildonspark/spark-sdk'
 // import { FlashnetClient } from '@flashnet/sdk'
 import sha256Hash from './utils/hash.js'
 import { encryptMessage } from './utils/encription.js'
@@ -294,6 +294,42 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     try {
       const wallet = await getWallet(mnemonic)
       return await wallet.getIdentityPublicKey()
+    } catch (err) {
+      console.log('Get spark identity public key error', err)
+    }
+  }
+
+  const getSparkLeafExitNodes = async ({ mnemonic, rawLeaves }) => {
+    try {
+      if (!Array.isArray(rawLeaves) || rawLeaves.length === 0) return []
+      if (typeof buildUnilateralExitChain !== 'function') return []
+      const wallet = await getWallet(mnemonic)
+      const coordinatorAddress = wallet?.config?.getCoordinatorAddress?.()
+      const createSparkClient = wallet?.connectionManager?.createSparkClient
+      if (!coordinatorAddress || typeof createSparkClient !== 'function') return []
+      const sparkClient = await wallet.connectionManager.createSparkClient(coordinatorAddress)
+
+      // Shared cache: ancestors common to multiple leaves are fetched once, and
+      // buildUnilateralExitChain reads parents from here before hitting operators.
+      const nodeMap = new Map(rawLeaves.map((leaf) => [leaf.id, leaf]))
+      const leafIds = new Set(rawLeaves.map((leaf) => leaf.id))
+      const ancestors = new Map()
+
+      for (const leaf of rawLeaves) {
+        try {
+          const chain = await buildUnilateralExitChain(leaf, nodeMap, sparkClient, Network.MAINNET)
+          for (const node of chain) {
+            if (!node?.id || leafIds.has(node.id) || ancestors.has(node.id)) {
+              continue
+            }
+            ancestors.set(node.id, node)
+          }
+        } catch (err) {
+          console.log('build exit chain error for leaf', leaf?.id, err)
+        }
+      }
+
+      return Array.from(ancestors.values())
     } catch (err) {
       console.log('Get spark identity public key error', err)
     }
@@ -1217,6 +1253,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSparkBalance,
     getCahcedSparkBalance,
     getSparkLeaves,
+    getSparkLeafExitNodes,
     getSparkStaticBitcoinL1Address,
     queryAllStaticDepositAddresses,
     getUtxosForDepositAddress,
