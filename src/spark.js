@@ -299,6 +299,15 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const getSparkLeaves = async ({ mnemonic, isBalanceCheck }) => {
+    try {
+      const wallet = await getWallet(mnemonic)
+      return await wallet.getLeaves(isBalanceCheck)
+    } catch (err) {
+      console.log('Get spark identity public key error', err)
+    }
+  }
+
   const setPrivacyEnabled = async ({ mnemonic }) => {
     try {
       const wallet = await getWallet(mnemonic)
@@ -321,6 +330,37 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
       const wallet = await getWallet(mnemonic)
 
       const balance = await wallet.getBalance()
+
+      let currentTokensObj = {}
+      for (const [tokensIdentifier, tokensData] of balance.tokenBalances) {
+        currentTokensObj[tokensIdentifier] = {
+          ...tokensData,
+          tokenMetadata: {
+            ...tokensData.tokenMetadata,
+            maxSupply: tokensData.tokenMetadata.maxSupply.toString(),
+          },
+          balance: tokensData.availableToSendBalance.toString(),
+        }
+        delete currentTokensObj[tokensIdentifier].availableToSendBalance
+        delete currentTokensObj[tokensIdentifier].ownedBalance
+      }
+
+      return {
+        tokensObject: currentTokensObj,
+        balance: balance.balance.toString(),
+        didWork: true,
+      }
+    } catch (err) {
+      console.log('Get spark balance error', err)
+      return { didWork: false }
+    }
+  }
+
+  const getCahcedSparkBalance = async ({ mnemonic }) => {
+    try {
+      const wallet = await getWallet(mnemonic)
+
+      const balance = await wallet.getCachedBalance()
 
       let currentTokensObj = {}
       for (const [tokensIdentifier, tokensData] of balance.tokenBalances) {
@@ -1175,6 +1215,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     disposeSparkWallet,
     getSparkIdentityPubKey,
     getSparkBalance,
+    getCahcedSparkBalance,
+    getSparkLeaves,
     getSparkStaticBitcoinL1Address,
     queryAllStaticDepositAddresses,
     getUtxosForDepositAddress,
