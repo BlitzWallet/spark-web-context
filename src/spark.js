@@ -299,39 +299,46 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const getSparkLeafExitNodes = async ({ mnemonic, rawLeaves }) => {
+  const getSparkLeafExitNodes = async ({ mnemonic, leaves }) => {
     try {
-      if (!Array.isArray(rawLeaves) || rawLeaves.length === 0) return []
-      if (typeof buildUnilateralExitChain !== 'function') return []
+      if (!Array.isArray(leaves) || leaves.length === 0) return {}
+      if (typeof buildUnilateralExitChain !== 'function') return {}
       const wallet = await getWallet(mnemonic)
       const coordinatorAddress = wallet?.config?.getCoordinatorAddress?.()
       const createSparkClient = wallet?.connectionManager?.createSparkClient
-      if (!coordinatorAddress || typeof createSparkClient !== 'function') return []
+      if (!coordinatorAddress || typeof createSparkClient !== 'function') return {}
       const sparkClient = await wallet.connectionManager.createSparkClient(coordinatorAddress)
 
-      // Shared cache: ancestors common to multiple leaves are fetched once, and
-      // buildUnilateralExitChain reads parents from here before hitting operators.
-      const nodeMap = new Map(rawLeaves.map((leaf) => [leaf.id, leaf]))
-      const leafIds = new Set(rawLeaves.map((leaf) => leaf.id))
-      const ancestors = new Map()
+      // nodeMap seeds buildUnilateralExitChain with locally-known nodes so shared
+      // ancestors between leaves in this batch are only fetched from operators once.
+      const nodeMap = new Map(leaves.map((leaf) => [leaf.id, leaf]))
+      const leafIds = new Set(leaves.map((leaf) => leaf.id))
+      const result = {}
 
-      for (const leaf of rawLeaves) {
+      for (const leaf of leaves) {
         try {
           const chain = await buildUnilateralExitChain(leaf, nodeMap, sparkClient, Network.MAINNET)
+          // Keep only true ancestors (drop the leaf itself and dedup within chain).
+          const seen = new Set()
+          const ancestors = []
           for (const node of chain) {
-            if (!node?.id || leafIds.has(node.id) || ancestors.has(node.id)) {
+            if (!node?.id || leafIds.has(node.id) || seen.has(node.id)) {
               continue
             }
-            ancestors.set(node.id, node)
+            seen.add(node.id)
+            ancestors.push(node)
           }
+          result[leaf.id] = ancestors
         } catch (err) {
+          // Omit this leaf so the caller leaves it pending and retries later.
           console.log('build exit chain error for leaf', leaf?.id, err)
         }
       }
 
-      return Array.from(ancestors.values())
+      return result
     } catch (err) {
       console.log('Get spark identity public key error', err)
+      return {}
     }
   }
 
