@@ -947,6 +947,17 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const isOptimizationInProgress = async ({ mnemonic }) => {
+    try {
+      const wallet = await getWallet(mnemonic)
+      const response = await wallet.isOptimizationInProgress()
+      return { didWork: true, isOptimizing: response }
+    } catch (err) {
+      console.log('Check clawback status error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   // -------------------------------
   // FLASHNET FUNCTIONS
   // -------------------------------
@@ -1292,6 +1303,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     claimSparkHodlLightningPayment,
     receiveSparkHodlLightningPayment,
     querySparkHodlLightningPayments,
+    isOptimizationInProgress,
 
     // Flashnet functions
     initializeFlashnet,
