@@ -92,6 +92,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         network: 'MAINNET',
         optimizationOptions: {
           multiplicity: 2,
+          auto: true,
         },
       },
     })
