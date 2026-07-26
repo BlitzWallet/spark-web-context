@@ -218,56 +218,68 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
 
   const removeWalletEventListener = async ({ mnemonic }) => {
-    const wallet = await getWallet(mnemonic)
-    if (!wallet) return
+    try {
+      const wallet = await getWallet(mnemonic)
+      if (!wallet) return { didWork: false }
 
-    if (wallet.listenerCount('transfer:claimed')) {
-      wallet.removeAllListeners('transfer:claimed')
-    }
-    if (wallet.listenerCount('balance:update')) {
-      wallet.removeAllListeners('balance:update')
-    }
-    if (wallet.listenerCount('token-balance:update')) {
-      wallet.removeAllListeners('token-balance:update')
-    }
-    if (wallet.listenerCount('stream:connected')) {
-      wallet.removeAllListeners('stream:connected')
-    }
-    if (wallet.listenerCount('stream:disconnected')) {
-      wallet.removeAllListeners('stream:disconnected')
-    }
-    if (wallet.listenerCount('stream:reconnecting')) {
-      wallet.removeAllListeners('stream:reconnecting')
+      if (wallet.listenerCount('transfer:claimed')) {
+        wallet.removeAllListeners('transfer:claimed')
+      }
+      if (wallet.listenerCount('balance:update')) {
+        wallet.removeAllListeners('balance:update')
+      }
+      if (wallet.listenerCount('token-balance:update')) {
+        wallet.removeAllListeners('token-balance:update')
+      }
+      if (wallet.listenerCount('stream:connected')) {
+        wallet.removeAllListeners('stream:connected')
+      }
+      if (wallet.listenerCount('stream:disconnected')) {
+        wallet.removeAllListeners('stream:disconnected')
+      }
+      if (wallet.listenerCount('stream:reconnecting')) {
+        wallet.removeAllListeners('stream:reconnecting')
+      }
+      return { didWork: true }
+    } catch (err) {
+      console.log('Error removing event listeners', err)
+      return { didWork: false, error: err.message }
     }
   }
 
   const addWalletEventListener = async ({ mnemonic }) => {
-    const wallet = await getWallet(mnemonic)
-    if (!wallet) return
+    try {
+      const wallet = await getWallet(mnemonic)
+      if (!wallet) return { didWork: false }
 
-    // mnemonic here is already the wallet hash — tag every push event with it so
-    // the app can tell which wallet (main vs derived gift/pool/savings) emitted.
-    const walletId = mnemonic
+      // mnemonic here is already the wallet hash — tag every push event with it so
+      // the app can tell which wallet (main vs derived gift/pool/savings) emitted.
+      const walletId = mnemonic
 
-    // Each binding is guarded independently so a partial prior state can't skip
-    // the newer listeners.
-    if (!wallet.listenerCount('transfer:claimed')) {
-      wallet.on('transfer:claimed', (transferId, balance) => handleTransfer(transferId, balance, walletId))
-    }
-    if (!wallet.listenerCount('balance:update')) {
-      wallet.on('balance:update', (balance) => handleBalanceUpdate(balance, walletId))
-    }
-    if (!wallet.listenerCount('token-balance:update')) {
-      wallet.on('token-balance:update', (event) => handleTokenBalanceUpdate(event, walletId))
-    }
-    if (!wallet.listenerCount('stream:connected')) {
-      wallet.on('stream:connected', handleStreamConnected)
-    }
-    if (!wallet.listenerCount('stream:disconnected')) {
-      wallet.on('stream:disconnected', handleStreamDisconnected)
-    }
-    if (!wallet.listenerCount('stream:reconnecting')) {
-      wallet.on('stream:reconnecting', handleStreamReconnecting)
+      // Each binding is guarded independently so a partial prior state can't skip
+      // the newer listeners.
+      if (!wallet.listenerCount('transfer:claimed')) {
+        wallet.on('transfer:claimed', (transferId, balance) => handleTransfer(transferId, balance, walletId))
+      }
+      if (!wallet.listenerCount('balance:update')) {
+        wallet.on('balance:update', (balance) => handleBalanceUpdate(balance, walletId))
+      }
+      if (!wallet.listenerCount('token-balance:update')) {
+        wallet.on('token-balance:update', (event) => handleTokenBalanceUpdate(event, walletId))
+      }
+      if (!wallet.listenerCount('stream:connected')) {
+        wallet.on('stream:connected', handleStreamConnected)
+      }
+      if (!wallet.listenerCount('stream:disconnected')) {
+        wallet.on('stream:disconnected', handleStreamDisconnected)
+      }
+      if (!wallet.listenerCount('stream:reconnecting')) {
+        wallet.on('stream:reconnecting', handleStreamReconnecting)
+      }
+      return { didWork: true }
+    } catch (err) {
+      console.log('Error adding event listener', err)
+      return { didWork: false, error: err.message }
     }
   }
 
@@ -749,10 +761,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         delete tx.leaves
         return tx
       })
-      return { transfers, offset: response.offset }
+      return { transfers, offset: response.offset, success: true }
     } catch (err) {
       console.log('Get spark transactions error', err)
-      return { transfers: [] }
+      return { transfers: [], success: false }
     }
   }
 
