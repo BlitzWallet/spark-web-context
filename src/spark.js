@@ -1,4 +1,4 @@
-import { Network, SparkWallet, buildUnilateralExitChain } from '@buildonspark/spark-sdk'
+import { Network, SparkReadonlyClient, SparkWallet, buildUnilateralExitChain } from '@buildonspark/spark-sdk'
 // import { FlashnetClient } from '@flashnet/sdk'
 import sha256Hash from './utils/hash.js'
 import { encryptMessage } from './utils/encription.js'
@@ -11,6 +11,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   const sparkWallet = {}
   const flashnetClients = {}
   const initializingWallets = {}
+  // Single read-only viewer
+  let walletViewer = null
+  let initializingWalletViewer = null
 
   const optimizationState = {
     isLeafOptimizationRunning: false,
@@ -1274,6 +1277,133 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  // -------------------------------
+  // Wallet viewer
+  // -------------------------------
+
+  const initializeSparkWalletViewer = async ({ mnemonic }) => {
+    if (initializingWalletViewer) {
+      await initializingWalletViewer
+      return !!walletViewer
+    }
+    if (walletViewer && !mnemonic) return true
+    if (!mnemonic) return false
+
+    try {
+      initializingWalletViewer = (async () => {
+        const wallet = await SparkReadonlyClient.createWithMasterKey(
+          {
+            network: 'MAINNET',
+          },
+          mnemonic
+        )
+        walletViewer = wallet
+        return wallet
+      })()
+
+      await initializingWalletViewer
+      return true
+    } catch (err) {
+      console.log('error initializing wallet viewer', err)
+      walletViewer = null
+      return false
+    } finally {
+      initializingWalletViewer = null
+    }
+  }
+
+  const getWalletViewerTokens = async ({ sparkAddress, USDB_TOKEN_ID }) => {
+    try {
+      if (!walletViewer) return 0
+
+      const balance = await walletViewer.getTokenBalance(sparkAddress)
+      let currentTokensObj = {}
+      for (const [tokensIdentifier, tokensData] of balance) {
+        currentTokensObj[tokensIdentifier] = {
+          ...tokensData,
+          balance: tokensData.availableToSendBalance,
+        }
+      }
+      // BigInt must be serialized before crossing the JSON bridge.
+      return currentTokensObj[USDB_TOKEN_ID]?.balance?.toString()
+    } catch (err) {
+      console.log('error getting token transactions', err)
+      return 0
+    }
+  }
+
+  const getWalletViewerBitcoin = async ({ sparkAddress }) => {
+    try {
+      if (!walletViewer) return 0
+
+      const balance = await walletViewer.getAvailableBalance(sparkAddress)
+      // BigInt must be serialized before crossing the JSON bridge.
+      return balance?.toString()
+    } catch (err) {
+      console.log('error getting token transactions', err)
+      return 0
+    }
+  }
+
+  const getWalletViewerTokenTransactions = async ({ sparkAddress, USDB_TOKEN_ID }) => {
+    try {
+      if (!walletViewer) return false
+
+      const transactions = await walletViewer.getTokenTransactions({
+        sparkAddresses: [sparkAddress],
+        tokenIdentifiers: [USDB_TOKEN_ID],
+      })
+
+      const tokenTransactionsWithStatus = transactions.transactions.map((tx) => {
+        const t = tx.tokenTransaction
+        const firstOutput = t.tokenOutputs?.[0]
+        return {
+          tokenTransactionHash: tx.tokenTransactionHash,
+          tokenTransaction: {
+            clientCreatedTimestamp: t.clientCreatedTimestamp,
+            tokenOutputs: firstOutput
+              ? [
+                  {
+                    ownerPublicKey: firstOutput.ownerPublicKey,
+                    tokenIdentifier: firstOutput.tokenIdentifier,
+                    tokenAmount: firstOutput.tokenAmount,
+                  },
+                ]
+              : [],
+          },
+        }
+      })
+      return tokenTransactionsWithStatus
+    } catch (err) {
+      console.log('error getting token transactions', err)
+      return false
+    }
+  }
+
+  const getWalletViewerBitcoinTransactions = async ({ sparkAddress }) => {
+    try {
+      if (!walletViewer) return false
+
+      const transactions = await walletViewer.getTransfers({
+        sparkAddress: sparkAddress,
+      })
+      const transfers = transactions.transfers.map((tx) => {
+        delete tx.leaves
+        delete tx.receivers
+        delete tx.senders
+        delete tx.network
+        delete tx.status
+        delete tx.type
+        delete tx.expiryTime
+        return tx
+      })
+      return transfers
+    } catch (err) {
+      console.log('error getting token transactions', err)
+      return false
+    }
+  }
+
   return {
     // Spark functions
     initializeSparkWallet,
@@ -1342,6 +1472,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     checkIfOptimizationNeeded,
     runLeafOptimization,
     runTokenOptimization,
+
+    // Wallet viewer
+    initializeSparkWalletViewer,
+    getWalletViewerTokens,
+    getWalletViewerBitcoin,
+    getWalletViewerTokenTransactions,
+    getWalletViewerBitcoinTransactions,
   }
 }
 
