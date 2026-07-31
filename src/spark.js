@@ -1,10 +1,125 @@
 import { Network, SparkReadonlyClient, SparkWallet, buildUnilateralExitChain } from '@buildonspark/spark-sdk'
+import { TreeNode } from '@buildonspark/spark-sdk/proto/spark'
 // import { FlashnetClient } from '@flashnet/sdk'
 import sha256Hash from './utils/hash.js'
 import { encryptMessage } from './utils/encription.js'
 import { FlashnetAPI } from './flashnet.js'
 
 const SPARK_TO_SPARK_FEE = 0
+
+// ---------------------------------------------------------------------------
+// Leaf slimming: getLeaves() returns fat TreeNodes carrying 5 tx byte-blobs, 3
+// pubkeys and a signing keyshare. Sent whole over the bridge each field
+// serializes as a {"0":n,...} map (~9 chars/byte, ~10KB/leaf). Those bytes feed
+// exactly one thing app-side: the single protobuf-encoded `treeNodeHex` the
+// spark-unilateral-exit tooling consumes. So we encode it HERE and return only
+// the slim leaf, dropping the raw bytes from the wire. Byte-faithful: identical
+// TreeNode.encode the native path uses (app/functions/spark/leavesStorage.js).
+// ---------------------------------------------------------------------------
+
+// Buffer-free hex (webpack/browser bundle — no Node Buffer, and @noble's
+// /utils subpath is not exported by this version).
+const bytesToHex = (u8) => {
+  let hex = ''
+  for (let i = 0; i < u8.length; i++) hex += u8[i].toString(16).padStart(2, '0')
+  return hex
+}
+
+// The proto bytes encoder reads `.length` on every bytes field, so never hand
+// it undefined — empty bytes default to a zero-length array. Raw leaves here are
+// native SDK objects, so bytes arrive as Uint8Array; the other shapes are kept
+// defensively.
+const bytesToUint8 = (value) => {
+  if (value == null) return new Uint8Array(0)
+  if (value instanceof Uint8Array) return value
+  if (typeof value === 'string') return Uint8Array.from(Buffer.from(value, 'hex'))
+  if (Array.isArray(value)) return Uint8Array.from(value)
+  if (typeof value === 'object') return Uint8Array.from(Object.values(value))
+  return new Uint8Array(0)
+}
+
+// The protobuf Timestamp encoder calls `.getTime()`, so hand it a Date or undefined.
+const toDateOrUndefined = (value) => {
+  if (value == null) return undefined
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+const signingKeyshareForProto = (keyshare) => {
+  if (!keyshare || typeof keyshare !== 'object') return undefined
+  const publicShares = {}
+  if (keyshare.publicShares && typeof keyshare.publicShares === 'object') {
+    for (const [id, share] of Object.entries(keyshare.publicShares)) {
+      publicShares[id] = bytesToUint8(share)
+    }
+  }
+  return {
+    ownerIdentifiers: keyshare.ownerIdentifiers ?? [],
+    threshold: Number(keyshare.threshold || 0),
+    publicKey: bytesToUint8(keyshare.publicKey),
+    publicShares,
+    updatedTime: toDateOrUndefined(keyshare.updatedTime),
+  }
+}
+
+// Encodes a raw SDK leaf into the single protobuf-hex TreeNode string. Returns
+// null on failure so one bad leaf can't abort a whole snapshot.
+const treeNodeHexFromRaw = (raw) => {
+  try {
+    const message = {
+      id: raw.id ?? '',
+      treeId: raw.treeId ?? '',
+      value: Number(raw.value || 0),
+      parentNodeId: raw.parentNodeId ?? undefined,
+      nodeTx: bytesToUint8(raw.nodeTx),
+      refundTx: bytesToUint8(raw.refundTx),
+      vout: Number(raw.vout || 0),
+      verifyingPublicKey: bytesToUint8(raw.verifyingPublicKey),
+      ownerIdentityPublicKey: bytesToUint8(raw.ownerIdentityPublicKey),
+      signingKeyshare: signingKeyshareForProto(raw.signingKeyshare),
+      status: raw.status ?? '',
+      network: Number(raw.network || 0),
+      createdTime: toDateOrUndefined(raw.createdTime),
+      updatedTime: toDateOrUndefined(raw.updatedTime),
+      ownerSigningPublicKey: bytesToUint8(raw.ownerSigningPublicKey),
+      directTx: bytesToUint8(raw.directTx),
+      directRefundTx: bytesToUint8(raw.directRefundTx),
+      directFromCpfpRefundTx: bytesToUint8(raw.directFromCpfpRefundTx),
+      treenodeStatus: Number(raw.treenodeStatus || 0),
+    }
+    return bytesToHex(TreeNode.encode(message).finish())
+  } catch (err) {
+    console.log('treeNodeHexFromRaw error', err)
+    return null
+  }
+}
+
+// Leaves below this value can't be unilaterally exited economically (fees
+// exceed value), so they never need treeNodeHex — the heavy field. Mirrors
+// EXIT_MIN_SATS in app/functions/spark/leavesStorage.js (keep in sync).
+const EXIT_MIN_SATS = 16348
+
+// Slim leaf sent over the bridge. Retains only what downstream reads:
+// id/treeId/value/status/parentNodeId -> leaf storage columns + stats;
+// status/parentNodeId/id -> buildUnilateralExitChain when re-sent for exit-node
+// fetch; network -> export network label; updatedTime/treenodeStatus -> the
+// upsert staleness CASE; treeNodeHex -> canonical unilateral-exit artifact.
+// `withHex` is false for sub-EXIT_MIN_SATS dust: it can't be exited, so we omit
+// treeNodeHex (null) to cut the biggest field. The leaf is still stored+counted;
+// the export skips null-treeNodeHex leaves. Setting `null` (not undefined) is
+// load-bearing: normalizeLeaf treats undefined as "native, build it" and null as
+// "webview said none — keep none".
+const slimLeaf = (raw, withHex = true) => ({
+  id: raw.id,
+  treeId: raw.treeId,
+  value: Number(raw.value || 0),
+  status: raw.status,
+  parentNodeId: raw.parentNodeId ?? null,
+  network: raw.network ?? null,
+  updatedTime: raw.updatedTime ?? null,
+  treenodeStatus: raw.treenodeStatus ?? null,
+  treeNodeHex: withHex ? treeNodeHexFromRaw(raw) : null,
+})
 
 // Encapsulate sparkWallet in a closure
 const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
@@ -342,7 +457,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
               continue
             }
             seen.add(node.id)
-            ancestors.push(node)
+            // Slim each ancestor the same way (export reads only treeNodeHex);
+            // the exit chain was already built above from the full nodes.
+            ancestors.push(slimLeaf(node))
           }
           result[leaf.id] = ancestors
         } catch (err) {
@@ -361,7 +478,14 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   const getSparkLeaves = async ({ mnemonic, isBalanceCheck }) => {
     try {
       const wallet = await getWallet(mnemonic)
-      return await wallet.getLeaves(isBalanceCheck)
+      const leaves = await wallet.getLeaves(isBalanceCheck)
+      // Slim each leaf (drop raw tx/pubkey bytes) before crossing the bridge.
+      // Dust (< EXIT_MIN_SATS) also omits treeNodeHex — it can't be exited.
+      return Array.isArray(leaves)
+        ? leaves.map((leaf) =>
+            slimLeaf(leaf, Number(leaf.value || 0) >= EXIT_MIN_SATS),
+          )
+        : leaves
     } catch (err) {
       console.log('Get spark identity public key error', err)
     }
