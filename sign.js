@@ -1,7 +1,12 @@
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
-const { sign, createHash, createPrivateKey, createPublicKey } = require("crypto");
+const {
+  sign,
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+} = require("crypto");
 
 // Fixed ASN.1 headers for raw-32-byte Ed25519 keys (carry no secret).
 const ED25519_PKCS8_PREFIX = "302e020100300506032b657004220420"; // + 32-byte seed
@@ -11,8 +16,14 @@ function main() {
   const htmlFile = path.resolve(__dirname, "./dist/index.html");
   const privHex = process.env.SPARK_WEBVIEW_SIGNING_KEY;
   if (!privHex) {
-    console.error("SPARK_WEBVIEW_SIGNING_KEY not set");
-    process.exit(2);
+    // No key (e.g. local `yarn install`): skip signing instead of failing the
+    // build. The bundle keeps its __SIGNATURE__ placeholder, which the runtime
+    // verifier rejects (fails closed → native fallback). Release builds set the
+    // key and sign normally.
+    console.warn(
+      "SPARK_WEBVIEW_SIGNING_KEY not set — skipping signing (bundle left unsigned).",
+    );
+    return;
   }
 
   // Rebuild the Ed25519 private key from the raw 32-byte seed.
