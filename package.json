@@ -7,7 +7,7 @@
     "prepack": "npm run build",
     "start": "webpack serve --mode development",
     "build": "webpack && node inline-assets.js && npm run sign",
-    "sign": "node build-and-hash.js"
+    "sign": "node sign.js"
   },
   "author": "Blake Kaufman",
   "repository": "github:blitzwallet/spark-web-context",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "babel-loader": "^10.0.0",
+    "dotenv": "^17.4.2",
     "html-webpack-plugin": "^5.6.4",
     "inline-chunk-html-plugin": "^1.1.1",
     "webpack": "^5.102.0",

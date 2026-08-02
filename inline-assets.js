@@ -136,6 +136,14 @@ if (/<meta http-equiv="Content-Security-Policy"/i.test(html)) {
   html = `${cspMeta}\n${html}`;
 }
 
+// === Inject signature slot (filled in by sign.js after this step) ===
+if (/<head>/i.test(html)) {
+  html = html.replace(
+    /<head>/i,
+    `<head>\n<meta name="blitz-webview-sig" content="__SIGNATURE__">`
+  );
+}
+
 fs.writeFileSync(htmlFile, html, "utf8");
 
 console.log("CSP meta tag injected and HTML written successfully.");
