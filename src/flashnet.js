@@ -283,61 +283,6 @@ export const FlashnetAPI = (wallet) => {
     }
   }
 
-  const payLightningWithToken = async ({
-    invoice,
-    tokenAddress,
-    maxSlippageBps = 500,
-    maxLightningFeeSats,
-    rollbackOnFailure = true,
-    useExistingBtcBalance = false,
-    integratorFeeRateBps = 100,
-  }) => {
-    try {
-      const client = getClient()
-      const result = await client.payLightningWithToken({
-        invoice,
-        tokenAddress,
-        maxSlippageBps,
-        maxLightningFeeSats: maxLightningFeeSats || undefined,
-        rollbackOnFailure,
-        useExistingBtcBalance,
-        integratorFeeRateBps,
-        integratorPublicKey: BLITZ_PUB_KEY,
-      })
-
-      if (result.success) {
-        return {
-          didWork: true,
-          result: {
-            success: true,
-            lightningPaymentId: result.lightningPaymentId,
-            tokenAmountSpent: result.tokenAmountSpent,
-            btcAmountReceived: result.btcAmountReceived,
-            swapTransferId: result.swapTransferId,
-            ammFeePaid: result.ammFeePaid,
-            lightningFeePaid: result.lightningFeePaid,
-            poolId: result.poolId,
-          },
-        }
-      } else {
-        return {
-          didWork: false,
-          error: result.error,
-          result: {
-            success: false,
-            error: result.error,
-            poolId: result.poolId,
-            tokenAmountSpent: result.tokenAmountSpent,
-            btcAmountReceived: result.btcAmountReceived,
-          },
-        }
-      }
-    } catch (err) {
-      console.error('Pay Lightning with token error:', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
   // Swap History
   const getUserSwapHistory = async (limit, offset) => {
     try {
@@ -450,24 +395,6 @@ export const FlashnetAPI = (wallet) => {
     }
   }
 
-  const checkClawbackStatus = async ({ internalRequestId }) => {
-    try {
-      const client = getClient()
-      const status = await client.checkClawbackStatus({ internalRequestId })
-
-      return {
-        didWork: true,
-        status: status.status,
-        transferId: status.transferId,
-        isComplete: status.status === 'completed',
-        isFailed: status.status === 'failed',
-      }
-    } catch (err) {
-      console.error('Check clawback status error:', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
   const listClawbackableTransfers = async ({ limit = 100 }) => {
     try {
       const client = getClient()
@@ -547,12 +474,10 @@ export const FlashnetAPI = (wallet) => {
     swapBitcoinToToken,
     swapTokenToBitcoin,
     getLightningPaymentQuote,
-    payLightningWithToken,
     getUserSwapHistory,
     requestClawback,
     requestBatchClawback,
     checkClawbackEligibility,
-    checkClawbackStatus,
     listClawbackableTransfers,
   }
 }

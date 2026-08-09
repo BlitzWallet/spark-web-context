@@ -298,9 +298,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
   }
 
   // --- Push stream lifecycle so the app can detect a stale bridge ---
-  const handleStreamStatus = async (status) => {
+  const handleStreamStatus = async (status, walletId) => {
     const message = {
       streamStatus: status,
+      walletId,
       isResponse: true,
     }
 
@@ -312,9 +313,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const handleStreamConnected = () => handleStreamStatus('connected')
-  const handleStreamDisconnected = () => handleStreamStatus('disconnected')
-  const handleStreamReconnecting = () => handleStreamStatus('reconnecting')
+  const handleStreamConnected = (walletId) => handleStreamStatus('connected', walletId)
+  const handleStreamDisconnected = (walletId) => handleStreamStatus('disconnected', walletId)
+  const handleStreamReconnecting = (walletId) => handleStreamStatus('reconnecting', walletId)
 
   // -------------------------------
   // SPARK FUNCTIONS
@@ -386,13 +387,13 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         wallet.on('token-balance:update', (event) => handleTokenBalanceUpdate(event, walletId))
       }
       if (!wallet.listenerCount('stream:connected')) {
-        wallet.on('stream:connected', handleStreamConnected)
+        wallet.on('stream:connected', () => handleStreamConnected(walletId))
       }
       if (!wallet.listenerCount('stream:disconnected')) {
-        wallet.on('stream:disconnected', handleStreamDisconnected)
+        wallet.on('stream:disconnected', () => handleStreamDisconnected(walletId))
       }
       if (!wallet.listenerCount('stream:reconnecting')) {
-        wallet.on('stream:reconnecting', handleStreamReconnecting)
+        wallet.on('stream:reconnecting', () => handleStreamReconnecting(walletId))
       }
       return { didWork: true }
     } catch (err) {
@@ -703,6 +704,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         maxFeeSats: maxFeeSats,
         amountSatsToSend: amountSat,
         preferSpark: true,
+        // D-10: natural idempotency key — the BOLT11 invoice itself.
+        idempotencyKey: invoice.toLowerCase(),
       })
       delete paymentResponse.leaves
       return { didWork: true, paymentResponse }
@@ -1059,6 +1062,21 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const querySparkInvoices = async ({ mnemonic, invoices = [] }) => {
+    try {
+      const wallet = await getWallet(mnemonic)
+      const result = await wallet.querySparkInvoices(invoices)
+      return {
+        didWork: true,
+        invoiceStatuses: result.invoiceStatuses,
+        offset: result.offset,
+      }
+    } catch (err) {
+      console.log('Query spark invoices error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   const batchTransferTokens = async ({ mnemonic, invoices = [] }) => {
     try {
       const wallet = await getWallet(mnemonic)
@@ -1221,33 +1239,6 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const payLightningWithToken = async ({
-    mnemonic,
-    invoice,
-    tokenAddress,
-    maxSlippageBps,
-    maxLightningFeeSats,
-    rollbackOnFailure,
-    useExistingBtcBalance,
-    integratorFeeRateBps,
-  }) => {
-    try {
-      const client = getFlashnetClient(mnemonic)
-      return await client.payLightningWithToken({
-        invoice,
-        tokenAddress,
-        maxSlippageBps,
-        maxLightningFeeSats,
-        rollbackOnFailure,
-        useExistingBtcBalance,
-        integratorFeeRateBps,
-      })
-    } catch (err) {
-      console.log('Pay Lightning with token error', err)
-      return { didWork: false, error: err.message }
-    }
-  }
-
   const getUserSwapHistory = async ({ mnemonic, limit, offset }) => {
     try {
       const client = getFlashnetClient(mnemonic)
@@ -1285,16 +1276,6 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     } catch (err) {
       console.log('Check clawback eligibility error', err)
       return { didWork: false, error: err.message, response: false }
-    }
-  }
-
-  const checkClawbackStatus = async ({ mnemonic, internalRequestId }) => {
-    try {
-      const client = getFlashnetClient(mnemonic)
-      return await client.checkClawbackStatus({ internalRequestId })
-    } catch (err) {
-      console.log('Check clawback status error', err)
-      return { didWork: false, error: err.message }
     }
   }
 
@@ -1564,6 +1545,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     setPrivacyEnabled,
     createSatsInvoice,
     fufillSparkInvoices,
+    querySparkInvoices,
     batchTransferTokens,
     createTokensInvoice,
     claimSparkHodlLightningPayment,
@@ -1582,12 +1564,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     swapBitcoinToToken,
     swapTokenToBitcoin,
     getLightningPaymentQuote,
-    payLightningWithToken,
     getUserSwapHistory,
     requestClawback,
     requestBatchClawback,
     checkClawbackEligibility,
-    checkClawbackStatus,
     listClawbackableTransfers,
 
     // Optimization functions

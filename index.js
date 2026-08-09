@@ -6,6 +6,20 @@ import {
   encryptMessage,
 } from "./src/utils/encription.js";
 import { generateECDHKey } from "./src/utils/encriptionKeys.js";
+import { createDuplicateIdGuard } from "./src/utils/duplicateIds.js";
+
+// D-17 + keep-alive plan §4: the bounded duplicate-id cache is the sole
+// in-session replay guard (the sequence protocol is deleted, D-2) AND the
+// id→outcome cache that makes a re-sent request id deterministic: an in-flight
+// id awaits the original dispatch's promise, a done id re-posts the stored
+// result — a re-sent id NEVER re-executes. Eviction is SIZE-based only (never
+// time-based) so a request backgrounded for any length can still be resumed
+// deterministically: evict oldest beyond the cap; done results capped ~50.
+// GCM + the fresh per-load nonce already bar cross-session forgery, so
+// evicted ids may legally be re-accepted (they re-execute like a fresh
+// request).
+const MAX_PROCESSED_IDS = 512;
+const MAX_CACHED_RESULTS = 50;
 
 // Encapsulate logic to avoid global variables
 (function initializeSparkWebContext(ReactNativeWebView) {
@@ -14,22 +28,38 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
     ReactNativeWebView: window.ReactNativeWebView,
   });
   let sharedKey = null;
-  const processedMessageIds = new Set();
-  let expectedSequence = 0;
+  const duplicateIds = createDuplicateIdGuard({
+    maxSize: MAX_PROCESSED_IDS,
+    maxResults: MAX_CACHED_RESULTS,
+  });
   let handshakeComplete = false;
   let handshakeInProgress = false;
-  const MESSAGE_TIMEOUT_MS = 30000; // 30 seconds
 
   async function handleMessage(event) {
     try {
       if (typeof event.data !== "string") return;
       const receivedAt = Date.now();
       let data = JSON.parse(event.data);
+      // Captured before decryption reassigns `data` — the error path below is
+      // id-bearing (D-3/D-12) so a failed request settles that request only.
+      let requestId = data.id;
 
       if (data.isResponse) return;
 
-      if (data.id && processedMessageIds.has(data.id)) {
-        console.log(`Duplicate message ID ${data.id} ignored`);
+      if (requestId && duplicateIds.get(requestId, receivedAt)) {
+        const cached = duplicateIds.get(requestId, receivedAt);
+        if (cached.state === "in-flight") {
+          console.log(
+            `Re-sent message ID ${requestId} in flight - awaiting real outcome`
+          );
+          const response = await cached.promise;
+          ReactNativeWebView.postMessage(JSON.stringify(response));
+        } else {
+          console.log(
+            `Re-sent message ID ${requestId} done - re-posting stored result`
+          );
+          ReactNativeWebView.postMessage(JSON.stringify(cached.response));
+        }
         return;
       }
 
@@ -79,9 +109,8 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
           isResponse: true,
         };
         console.log("Session key established with native");
-        processedMessageIds.add(data.id);
+        duplicateIds.setDone(requestId, response, receivedAt);
         handshakeComplete = true;
-        expectedSequence = 1;
         ReactNativeWebView.postMessage(JSON.stringify(response));
         return;
       }
@@ -94,83 +123,75 @@ import { generateECDHKey } from "./src/utils/encriptionKeys.js";
         const decrypted = await decryptMessage(sharedKey, data.encrypted);
         const msg = JSON.parse(decrypted);
         data = msg;
+        requestId = data.id;
       }
 
-      if (data.id && processedMessageIds.has(data.id)) {
-        console.log(`Duplicate message ID ${data.id} ignored`);
+      if (requestId && duplicateIds.get(requestId, receivedAt)) {
+        const cached = duplicateIds.get(requestId, receivedAt);
+        if (cached.state === "in-flight") {
+          console.log(
+            `Re-sent message ID ${requestId} in flight - awaiting real outcome`
+          );
+          const response = await cached.promise;
+          ReactNativeWebView.postMessage(JSON.stringify(response));
+        } else {
+          console.log(
+            `Re-sent message ID ${requestId} done - re-posting stored result`
+          );
+          ReactNativeWebView.postMessage(JSON.stringify(cached.response));
+        }
         return;
-      }
-
-      // Validate sequence number (prevent replay)
-      if (typeof data.sequence === "number") {
-        if (data.sequence < expectedSequence) {
-          throw new Error(
-            `SECURITY: Rejected old message: seq ${data.sequence} < ${expectedSequence}`
-          );
-        }
-        if (data.sequence !== expectedSequence) {
-          throw new Error(
-            `SECURITY: Sequence gap: expected ${expectedSequence}, got ${data.sequence}`
-          );
-        }
-        expectedSequence = data.sequence + 1;
-      }
-
-      // Validate timestamp (prevent very old replays)
-      if (typeof data.timestamp === "number") {
-        const wallTimeElapsed = receivedAt - data.timestamp;
-
-        const wasHidden = document.hidden;
-        const MAX_HIDDEN_GRACE = 3 * 60_000;
-
-        if (
-          wallTimeElapsed >
-          MESSAGE_TIMEOUT_MS + (wasHidden ? MAX_HIDDEN_GRACE : 0)
-        ) {
-          throw new Error(
-            `SECURITY: Rejected stale message: ${wallTimeElapsed}ms old`
-          );
-        }
-
-        if (wallTimeElapsed < -5000) {
-          throw new Error(
-            `SECURITY: Rejected future message: ${wallTimeElapsed}ms in future`
-          );
-        }
-      }
-
-      processedMessageIds.add(data.id);
-
-      if (data.action === "simulate_crash") {
-        throw new Error("Crash simulation not allowed in production");
       }
 
       if (!sparkAPI[data.action]) {
         throw new Error(`Unknown Spark action: ${data.action}`);
       }
 
-      const result = await sparkAPI[data.action](data.args);
-      const response = {
-        id: data.id,
-        success: true,
-        result: JSON.stringify(result),
-        isResponse: true,
-      };
-      data = null; //clear data field after use
+      // Wrap the dispatch in a promise FIRST so a re-sent id can await the
+      // same in-flight outcome instead of re-executing (keep-alive plan §4).
+      const dispatchPromise = (async () => {
+        const result = await sparkAPI[data.action](data.args);
+        const response = {
+          id: data.id,
+          success: true,
+          result: JSON.stringify(result),
+          isResponse: true,
+        };
+        data = null; //clear data field after use
 
-      const encrypted = await encryptMessage(
-        sharedKey,
-        JSON.stringify(response)
-      );
-      ReactNativeWebView.postMessage(
-        JSON.stringify({ encrypted, isResponse: true })
-      );
+        const encrypted = await encryptMessage(
+          sharedKey,
+          JSON.stringify(response)
+        );
+        return { encrypted, isResponse: true };
+      })();
+
+      duplicateIds.setInFlight(requestId, dispatchPromise, receivedAt);
+
+      try {
+        const posted = await dispatchPromise;
+        duplicateIds.setDone(requestId, posted, Date.now());
+        ReactNativeWebView.postMessage(JSON.stringify(posted));
+      } catch (err) {
+        console.log("Spark WebContext error:", err);
+        // Cache the ERROR as the done outcome too: a re-query of the same id
+        // returns the same error, never a re-execution.
+        const errorResponse = {
+          encrypted: await encryptMessage(
+            sharedKey,
+            JSON.stringify({ id: requestId, error: err.message })
+          ),
+          isResponse: true,
+        };
+        duplicateIds.setDone(requestId, errorResponse, Date.now());
+        ReactNativeWebView.postMessage(JSON.stringify(errorResponse));
+      }
     } catch (err) {
       console.log("Spark WebContext error:", err);
       if (sharedKey) {
         const encrypted = await encryptMessage(
           sharedKey,
-          JSON.stringify({ error: err.message })
+          JSON.stringify({ id: requestId, error: err.message })
         );
         ReactNativeWebView.postMessage(
           JSON.stringify({ encrypted, isResponse: true })
