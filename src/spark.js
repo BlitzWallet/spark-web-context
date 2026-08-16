@@ -483,9 +483,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
       // Slim each leaf (drop raw tx/pubkey bytes) before crossing the bridge.
       // Dust (< EXIT_MIN_SATS) also omits treeNodeHex — it can't be exited.
       return Array.isArray(leaves)
-        ? leaves.map((leaf) =>
-            slimLeaf(leaf, Number(leaf.value || 0) >= EXIT_MIN_SATS),
-          )
+        ? leaves.map((leaf) => slimLeaf(leaf, Number(leaf.value || 0) >= EXIT_MIN_SATS))
         : leaves
     } catch (err) {
       console.log('Get spark identity public key error', err)
@@ -1450,13 +1448,16 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const getWalletViewerTokenTransactions = async ({ sparkAddress, USDB_TOKEN_ID }) => {
+  const getWalletViewerTokenTransactions = async ({ sparkAddress, USDB_TOKEN_ID, pageSize, cursor, direction }) => {
     try {
       if (!walletViewer) return false
 
       const transactions = await walletViewer.getTokenTransactions({
         sparkAddresses: [sparkAddress],
         tokenIdentifiers: [USDB_TOKEN_ID],
+        pageSize,
+        cursor,
+        direction,
       })
 
       const tokenTransactionsWithStatus = transactions.transactions.map((tx) => {
@@ -1478,33 +1479,30 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
           },
         }
       })
-      return tokenTransactionsWithStatus
+      return { transactions: tokenTransactionsWithStatus, pageResponse: transactions.pageResponse }
     } catch (err) {
       console.log('error getting token transactions', err)
       return false
     }
   }
 
-  const getWalletViewerBitcoinTransactions = async ({ sparkAddress }) => {
+  const getWalletViewerBitcoinTransactions = async ({ sparkAddress, limit, offset }) => {
     try {
       if (!walletViewer) return false
-
-      const transactions = await walletViewer.getTransfers({
-        sparkAddress: sparkAddress,
-      })
-      const transfers = transactions.transfers.map((tx) => {
+      const response = await walletViewer.getTransfers({ sparkAddress, limit, offset })
+      const transfers = response.transfers.map((tx) => {
         delete tx.leaves
         delete tx.receivers
         delete tx.senders
         delete tx.network
         delete tx.status
-        delete tx.type
         delete tx.expiryTime
+        if (typeof tx.totalValue === 'bigint') tx.totalValue = tx.totalValue.toString()
         return tx
       })
-      return transfers
+      return { transfers, offset: response.offset }
     } catch (err) {
-      console.log('error getting token transactions', err)
+      console.log('error getting bitcoin transfers', err)
       return false
     }
   }

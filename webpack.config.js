@@ -11,6 +11,17 @@ module.exports = {
     path: path.resolve(__dirname, "dist"),
     publicPath: "/",
   },
+  resolve: {
+    alias: {
+      // Dedupe @noble/hashes: the app imports v2-style subpaths (./sha2.js)
+      // while the SDK and @scure/* import v1-style (./sha2). v1.8.0 exports
+      // both forms, so pin everything to the single v1.8.0 copy the SDK uses.
+      "@noble/hashes": path.resolve(
+        __dirname,
+        "node_modules/@buildonspark/spark-sdk/node_modules/@noble/hashes"
+      ),
+    },
+  },
   optimization: {
     splitChunks: false,
     runtimeChunk: false,
