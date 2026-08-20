@@ -587,10 +587,10 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
-  const getSparkStaticBitcoinL1AddressQuote = async ({ txid, mnemonic }) => {
+  const getSparkStaticBitcoinL1AddressQuote = async ({ txid, mnemonic, outputIndex }) => {
     try {
       const wallet = await getWallet(mnemonic)
-      const quote = await wallet.getClaimStaticDepositQuote(txid)
+      const quote = await wallet.getClaimStaticDepositQuote(txid, outputIndex)
       return { didWork: true, quote }
     } catch (err) {
       console.log('Get reusable Bitcoin mainchain address quote error', err)
