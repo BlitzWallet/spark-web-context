@@ -846,6 +846,22 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const getUtxosForIdentity = async ({ mnemonic, pageSize, cursor, excludeClaimed, includePending }) => {
+    try {
+      const wallet = await getWallet(mnemonic)
+      const result = await wallet.getUtxosForIdentity({
+        pageSize,
+        cursor,
+        excludeClaimed,
+        includePending,
+      })
+      return { didWork: true, ...result }
+    } catch (err) {
+      console.log('Get utxos for identity error', err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
   const getSparkBitcoinPaymentFeeEstimate = async ({ withdrawalAddress, amountSats, mnemonic }) => {
     try {
       const wallet = await getWallet(mnemonic)
@@ -1521,6 +1537,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     getSparkStaticBitcoinL1Address,
     queryAllStaticDepositAddresses,
     getUtxosForDepositAddress,
+    getUtxosForIdentity,
     getSparkStaticBitcoinL1AddressQuote,
     refundSparkStaticBitcoinL1AddressQuote,
     claimnSparkStaticDepositAddress,
