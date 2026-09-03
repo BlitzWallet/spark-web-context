@@ -1,4 +1,13 @@
-import { Network, SparkReadonlyClient, SparkWallet, buildUnilateralExitChain } from '@buildonspark/spark-sdk'
+import {
+  Network,
+  SparkReadonlyClient,
+  SparkWallet,
+  buildUnilateralExitChain,
+  decodeSparkAddress,
+  encodeBech32mTokenIdentifier,
+  getNetworkFromSparkAddress,
+  isValidSparkAddress,
+} from '@buildonspark/spark-sdk'
 import { TreeNode } from '@buildonspark/spark-sdk/proto/spark'
 // import { FlashnetClient } from '@flashnet/sdk'
 import sha256Hash from './utils/hash.js'
@@ -1129,6 +1138,56 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  const decodeSparkInvoice = ({ sparkAddress }) => {
+    try {
+      const network = getNetworkFromSparkAddress(sparkAddress)
+      const decoded = decodeSparkAddress(sparkAddress, network)
+      const fields = decoded.sparkInvoiceFields
+      const payment = fields?.paymentType
+      const tokenIdentifier = payment?.type === 'tokens' ? (payment.tokenIdentifier ?? null) : null
+
+      return {
+        network,
+        identityPublicKey: decoded.identityPublicKey,
+        version: fields?.version,
+        invoiceId: fields?.id,
+        paymentType: payment?.type || 'sats',
+        tokenIdentifier,
+        tokenIdentifierBech32m:
+          tokenIdentifier != null
+            ? encodeBech32mTokenIdentifier({
+                tokenIdentifier: Buffer.from(tokenIdentifier, 'hex'),
+                network,
+              })
+            : null,
+        amount: payment?.amount != null ? payment.amount.toString() : null,
+        memo: fields?.memo ?? null,
+        senderPublicKey: fields?.senderPublicKey ?? null,
+        expiryTime: fields?.expiryTime ?? null,
+        signature: decoded.signature ?? null,
+      }
+    } catch (err) {
+      console.log(err)
+      return { didWork: false, error: err.message }
+    }
+  }
+
+  const extractPubkeyFromSparkAddress = ({ address }) => {
+    try {
+      if (!isValidSparkAddress(address)) {
+        throw new Error(`extractPubkeyFromSparkAddress: invalid Spark address: ${address}`)
+      }
+      const network = getNetworkFromSparkAddress(address)
+      const decoded = decodeSparkAddress(address, network)
+      if (!decoded?.identityPublicKey) {
+        throw new Error(`extractPubkeyFromSparkAddress: could not decode pubkey from: ${address}`)
+      }
+      return decoded.identityPublicKey
+    } catch (err) {
+      return { error: err.message }
+    }
+  }
+
   // -------------------------------
   // FLASHNET FUNCTIONS
   // -------------------------------
@@ -1567,6 +1626,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     receiveSparkHodlLightningPayment,
     querySparkHodlLightningPayments,
     isOptimizationInProgress,
+    decodeSparkInvoice,
+    extractPubkeyFromSparkAddress,
 
     // Flashnet functions
     initializeFlashnet,
