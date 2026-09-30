@@ -250,10 +250,25 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
     }
   }
 
+  // Available plus leaves locked for optimization (a swap returns the same amount), without
+  // the leaves being spent. getBalance()'s own `balance` is the operators' sum,
+  // which leaves out claims the server has not confirmed yet.
+  // ponytail: leafManager is SDK-internal (private in TS only); after an
+  // upgrade renames it these fall back to the SDK's plain available.
+  const getOptimizationLockedSats = (wallet) => wallet?.leafManager?.getOptimizationLockedBalance?.() ?? 0
+
+  const getSpendableSats = (wallet) => {
+    const lm = wallet?.leafManager
+    if (typeof lm?.getAvailableBalance !== 'function') return null
+    return lm.getAvailableBalance() + getOptimizationLockedSats(wallet)
+  }
+
   // --- Push the authoritative sats balance on every balance change ---
   // balance:update fires for deposits, transfers, swaps and claims. Payload is
-  // { available, owned, incoming } as bigints; we stringify for the bridge.
-  const handleBalanceUpdate = async (balance, walletId) => {
+  // { available, owned, incoming } as bigints plus optimizationLocked; we
+  // stringify for the bridge. optimizationLocked is read synchronously with
+  // the event, before the encryption await lets the leaf state move on.
+  const handleBalanceUpdate = async (balance, walletId, optimizationLocked) => {
     const message = {
       balanceUpdate: true,
       walletId,
@@ -261,6 +276,7 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         available: balance.available.toString(),
         owned: balance.owned.toString(),
         incoming: balance.incoming.toString(),
+        optimizationLocked: String(optimizationLocked),
       }),
       isResponse: true,
     }
@@ -390,7 +406,9 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
         wallet.on('transfer:claimed', (transferId, balance) => handleTransfer(transferId, balance, walletId))
       }
       if (!wallet.listenerCount('balance:update')) {
-        wallet.on('balance:update', (balance) => handleBalanceUpdate(balance, walletId))
+        wallet.on('balance:update', (balance) =>
+          handleBalanceUpdate(balance, walletId, getOptimizationLockedSats(wallet))
+        )
       }
       if (!wallet.listenerCount('token-balance:update')) {
         wallet.on('token-balance:update', (event) => handleTokenBalanceUpdate(event, walletId))
@@ -538,7 +556,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
       return {
         tokensObject: currentTokensObj,
-        balance: balance.balance.toString(),
+        // Same in-memory value balance:update events carry.
+        balance: String(getSpendableSats(wallet) ?? balance.balance),
         didWork: true,
       }
     } catch (err) {
@@ -569,7 +588,8 @@ const createSparkWalletAPI = ({ sharedKey, ReactNativeWebView }) => {
 
       return {
         tokensObject: currentTokensObj,
-        balance: balance.balance.toString(),
+        // Same in-memory value balance:update events carry.
+        balance: String(getSpendableSats(wallet) ?? balance.balance),
         didWork: true,
       }
     } catch (err) {
